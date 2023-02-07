@@ -42,7 +42,7 @@ seq:
     | EOF                     { Eof           }
 
 statement:
-    | NAME ASSIGN expr { Assign($1, $3) }
+    | NAME ASSIGN expr { Assign($1, $3) } (* TODO: add types because it is statically typed *)
 
 //   decls EOF { $1 }
 
