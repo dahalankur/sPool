@@ -1,17 +1,13 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
-
-(* type typ = Int | Bool | Float | Void *)
-
-(* type bind = typ * string *)
-
 type unaryop = Not | Neg
 type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
              | Leq | Greater | Geq 
 
 (* type typ = Quack | Int | Bool | Float
+(* type bind = typ * string *)
 type statement = 
-  | Assign of typ * string * expr *)
+  | Init of bind * expr *)
 
 type expr = 
     Literal of int
