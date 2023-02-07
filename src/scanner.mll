@@ -6,7 +6,7 @@ let digit = ['0' - '9']
 let digits = digit+
 
 rule token = parse
-  [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
+  [' ' '\t' '\r'] { token lexbuf } (* Whitespace *)
 (*| "/*"     { comment lexbuf }           (* Comments *)    TODO: replace with our comments beginning with # *)
 (* | '('      { LPAREN }
 | ')'      { RPAREN }
@@ -14,7 +14,9 @@ rule token = parse
 | '}'      { RBRACE }
 | ';'      { SEMI }
 | ','      { COMMA } *)
-(* | '='      { ASSIGN } *)
+
+| '\n'     { NEWLINE }
+| '='      { ASSIGN }
 | '+'      { PLUS }
 | '-'      { MINUS }
 | '*'      { TIMES }
@@ -42,7 +44,7 @@ rule token = parse
 | "false"  { BLIT(false) } *)
 | digits as lxm { LITERAL(int_of_string lxm) }
 (* | digits '.'  digit* as lxm { FLIT(lxm) } *)
-(* | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) } *)
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { NAME(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

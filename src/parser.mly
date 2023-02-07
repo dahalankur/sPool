@@ -12,16 +12,17 @@ open Ast
 // %token <string> ID FLIT
 // %token EOF
 
-%token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD
+%token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD ASSIGN NEWLINE
 %token <int> LITERAL
+%token <string> NAME
 %token EOF
 
-%start expr
-%type <Ast.expr> expr
+%start program
+%type <Ast.program> program
 
 // %nonassoc NOELSE
 // %nonassoc ELSE
-// %right ASSIGN
+%right ASSIGN
 %left OR
 %left AND
 %left EQ NEQ
@@ -32,7 +33,22 @@ open Ast
 
 %%
 
-// program:
+program: 
+    | seq               { Program($1) }
+    | delimiter seq     { Program($2) }
+
+delimiter:
+    | NEWLINE           {}
+    | delimiter NEWLINE {}
+
+seq:
+    | statement delimiter seq { Stmnt($1, $3) }
+    | expr delimiter seq      { Expr($1, $3)  }
+    | EOF                     { Eof           }
+
+statement:
+    | NAME ASSIGN expr { Assign($1, $3) }
+
 //   decls EOF { $1 }
 
 // decls:
@@ -89,6 +105,7 @@ open Ast
 
 expr:
   | LITERAL          {      Literal($1)       }
+  | NAME             {      Var($1)           }
 //   | FLIT	     { Fliteral($1)           }
 //   | BLIT             { BoolLit($1)            }
 //   | ID               { Id($1)                 }
@@ -107,6 +124,7 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3)   }
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | NOT expr         { Unop(Not, $2)          }
+//   | EOF               { EOF }
 //   | ID ASSIGN expr   { Assign($1, $3)         }
 //   | ID LPAREN args_opt RPAREN { Call($1, $3)  }
 //   | LPAREN expr RPAREN { $2                   }

@@ -23,10 +23,22 @@ type binop =
 
 type expr = 
   | Literal of int
+  | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
 
-(* 
+type statement = 
+  | Assign of string * expr
+
+type seq =
+  | Expr of expr * seq
+  | Stmnt of statement * seq
+  | Eof 
+
+type program = Program of seq
+  (* TODO: add more, how to encapsulate other criteria/conditions? *)
+
+  (* 
 type expr =
     Literal of int
   | Fliteral of string
@@ -58,6 +70,7 @@ type func_decl = {
 
 (* Pretty-printing functions *)
 
+
 let ast_of_op = function
   | Add -> "PLUS"
   | Sub -> "MINUS"
@@ -74,13 +87,14 @@ let ast_of_op = function
   | Or -> "OR" 
   
 let ast_of_uop = function
-  | Neg -> "NEG"
-  | Not -> "NOT"
+    | Neg -> "NEG"
+    | Not -> "NOT"
 
 let rec ast_of_expr = function
-| Literal(l) -> "LIT(" ^ string_of_int l ^ ")"
-| Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr e2 ^ ")"
-| Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr e ^ ")"
+  | Literal(l) -> "LIT(" ^ string_of_int l ^ ")"
+  | Var(s) -> "VAR(" ^ s ^ ")"
+  | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr e2 ^ ")"
+  | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr e ^ ")"
 
 let string_of_op = function
   | Add -> "+"
@@ -102,7 +116,8 @@ let string_of_uop = function
   | Not -> "!"
 
 let rec string_of_expr = function
-    Literal(l) -> string_of_int l
+  | Literal(l) -> string_of_int l
+  | Var(s) -> s
   (* | Fliteral(l) -> l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
@@ -147,3 +162,17 @@ let string_of_fdecl fdecl =
 let string_of_program (vars, funcs) =
   String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
   String.concat "\n" (List.map string_of_fdecl funcs) *)
+
+let ast_of_statement = function
+  | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
+
+let rec ast_of_seq = function
+  | Expr(e, Eof)  -> ast_of_expr e 
+  | Stmnt(s, Eof) -> ast_of_statement s
+  | Expr(e, sequence)  -> ast_of_expr e ^ ", " ^ ast_of_seq sequence
+  | Stmnt(s, sequence) -> ast_of_statement s ^ ", " ^ ast_of_seq sequence
+  | Eof -> ""
+
+
+let ast_of_program = function
+  | Program(sequence) -> "PROGRAM[" ^ ast_of_seq sequence ^ "]"
