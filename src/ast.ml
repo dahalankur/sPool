@@ -6,32 +6,24 @@
 (* type bind = typ * string *)
 
 type unaryop = Not | Neg
-type binop = 
-  | And 
-  | Or 
-  | Add 
-  | Sub 
-  | Mod
-  | Mult 
-  | Div 
-  | Equal 
-  | Neq 
-  | Less 
-  | Leq 
-  | Greater 
-  | Geq 
+type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
+             | Leq | Greater | Geq 
+
+(* type typ = Quack | Int | Bool | Float
+type statement = 
+  | Assign of typ * string * expr *)
 
 type expr = 
-  | Literal of int
+    Literal of int
   | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
 
 type statement = 
-  | Assign of string * expr
+    Assign of string * expr
 
 type seq =
-  | Expr of expr * seq
+    Expr of expr * seq
   | Stmnt of statement * seq
   | Eof 
 
@@ -72,7 +64,7 @@ type func_decl = {
 
 
 let ast_of_op = function
-  | Add -> "PLUS"
+    Add -> "PLUS"
   | Sub -> "MINUS"
   | Mult -> "TIMES"
   | Mod -> "MOD"
@@ -87,17 +79,17 @@ let ast_of_op = function
   | Or -> "OR" 
   
 let ast_of_uop = function
-    | Neg -> "NEG"
-    | Not -> "NOT"
+    Neg -> "NEG"
+  | Not -> "NOT"
 
 let rec ast_of_expr = function
-  | Literal(l) -> "LIT(" ^ string_of_int l ^ ")"
+    Literal(l) -> "LIT(" ^ string_of_int l ^ ")"
   | Var(s) -> "VAR(" ^ s ^ ")"
   | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr e2 ^ ")"
   | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr e ^ ")"
 
 let string_of_op = function
-  | Add -> "+"
+    Add -> "+"
   | Sub -> "-"
   | Mult -> "*"
   | Mod -> "%"
@@ -116,12 +108,11 @@ let string_of_uop = function
   | Not -> "!"
 
 let rec string_of_expr = function
-  | Literal(l) -> string_of_int l
+    Literal(l) -> string_of_int l
   | Var(s) -> s
   (* | Fliteral(l) -> l
   | BoolLit(true) -> "true"
-  | BoolLit(false) -> "false"
-  | Id(s) -> s *)
+  | BoolLit(false) -> "false" *)
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
@@ -164,15 +155,14 @@ let string_of_program (vars, funcs) =
   String.concat "\n" (List.map string_of_fdecl funcs) *)
 
 let ast_of_statement = function
-  | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
+    Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
 
 let rec ast_of_seq = function
-  | Expr(e, Eof)  -> ast_of_expr e 
+    Expr(e, Eof)  -> ast_of_expr e 
   | Stmnt(s, Eof) -> ast_of_statement s
   | Expr(e, sequence)  -> ast_of_expr e ^ ", " ^ ast_of_seq sequence
   | Stmnt(s, sequence) -> ast_of_statement s ^ ", " ^ ast_of_seq sequence
   | Eof -> ""
-
 
 let ast_of_program = function
   | Program(sequence) -> "PROGRAM[" ^ ast_of_seq sequence ^ "]"

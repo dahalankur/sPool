@@ -29,20 +29,21 @@ open Ast
 %%
 
 program: 
-    | seq               { Program($1) }
+      seq               { Program($1) }
     | delimiter seq     { Program($2) }
 
 delimiter:
-    | NEWLINE           {}
+      NEWLINE           {}
     | delimiter NEWLINE {}
 
 seq:
-    | statement delimiter seq { Stmnt($1, $3) }
+      statement delimiter seq { Stmnt($1, $3) }
     | expr delimiter seq      { Expr($1, $3)  }
     | EOF                     { Eof           }
 
 statement:
-    | NAME ASSIGN expr { Assign($1, $3) } (* TODO: add types because it is statically typed *)
+      NAME ASSIGN expr { Assign($1, $3) } 
+    //(* TODO: add types because it is statically typed as another rule for initialization *)
 
 //   decls EOF { $1 }
 
@@ -101,7 +102,7 @@ statement:
 expr:
 //   | FLIT	     { Fliteral($1)           }
 //   | BLIT             { BoolLit($1)            }
-  | LITERAL          {      Literal($1)       }
+    LITERAL          {      Literal($1)       }
   | NAME             {      Var($1)           }
   | expr PLUS   expr { Binop($1, Add,   $3)   }
   | expr MINUS  expr { Binop($1, Sub,   $3)   }
