@@ -1,16 +1,11 @@
-/* Ocamlyacc parser for MicroC */
-
 %{
 open Ast
 %}
 
-// %token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PLUS MINUS TIMES DIVIDE ASSIGN
-// %token NOT EQ NEQ LT LEQ GT GEQ AND OR
+// %token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
 // %token RETURN IF ELSE FOR WHILE INT BOOL FLOAT VOID
-// %token <int> LITERAL
 // %token <bool> BLIT
-// %token <string> ID FLIT
-// %token EOF
+// %token <string> FLIT
 
 %token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD ASSIGN NEWLINE
 %token <int> LITERAL
@@ -104,11 +99,10 @@ statement:
 //   | expr          { $1 }
 
 expr:
-  | LITERAL          {      Literal($1)       }
-  | NAME             {      Var($1)           }
 //   | FLIT	     { Fliteral($1)           }
 //   | BLIT             { BoolLit($1)            }
-//   | ID               { Id($1)                 }
+  | LITERAL          {      Literal($1)       }
+  | NAME             {      Var($1)           }
   | expr PLUS   expr { Binop($1, Add,   $3)   }
   | expr MINUS  expr { Binop($1, Sub,   $3)   }
   | expr MOD    expr { Binop($1, Mod,   $3)   }
@@ -124,8 +118,6 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3)   }
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | NOT expr         { Unop(Not, $2)          }
-//   | EOF               { EOF }
-//   | ID ASSIGN expr   { Assign($1, $3)         }
 //   | ID LPAREN args_opt RPAREN { Call($1, $3)  }
 //   | LPAREN expr RPAREN { $2                   }
 
