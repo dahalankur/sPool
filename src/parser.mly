@@ -7,7 +7,7 @@ open Ast
 // %token <bool> BLIT
 // %token <string> FLIT
 
-%token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD ASSIGN NEWLINE
+%token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD ASSIGN NEWLINE ELSE IF LPAREN RPAREN COLON SEMI
 %token <int> LITERAL
 %token <string> NAME
 %token EOF
@@ -15,8 +15,9 @@ open Ast
 %start program
 %type <Ast.program> program
 
-// %nonassoc NOELSE
-// %nonassoc ELSE
+%nonassoc NOELSE
+%nonassoc ELSE
+// %left SEMI COLON
 %right ASSIGN
 %left OR
 %left AND
@@ -25,28 +26,54 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIVIDE MOD
 %right NOT
+// %left NEWLINE
 
 %%
 
 program: 
-      seq               { Program($1) }
-    | delimiter seq     { Program($2) }
+      d_opt statement_list EOF    { Program(List.rev $2) }
+
+d_opt:
+                { }
+  | delimiter   { }
 
 delimiter:
       NEWLINE           {}
     | delimiter NEWLINE {}
 
-seq:
-      statement delimiter seq { Stmnt($1, $3) }
-    | expr delimiter seq      { Expr($1, $3)  }
-    | EOF                     { Eof           }
+statement_list:
+    /* nothing */                       { [] }
+  | statement delimiter statement_list  { $1 :: $3 }
+  | statement                           { [$1] }
 
 statement:
-      NAME ASSIGN expr { Assign($1, $3) } 
+      expr             { Expr($1)       }
+    | NAME ASSIGN expr { Assign($1, $3) } 
+    | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
+    | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
     //(* TODO: add types because it is statically typed as another rule for initialization *)
 
-//   decls EOF { $1 }
+// TODO: add to LRM -> if you are using an else statement, you do not use a semi-colon. Use of semi-colon automatically indicates the end of that if scope.
+// TODO: look at the slides and use the microC dangling example here to see what we get as ast
+// if (2): 54 else
 
+//  
+//  if (x < 2): 
+//      1 + 2
+//      if (x > 4):
+//          5 + 2
+// ; else
+//      2 + 1;
+//  
+//    VS. 
+//
+//  if (x < 2): 
+//      1 + 2
+//      if (x > 4):
+//          5 + 2
+//      else
+//           2 + 1;;
+// 
 // decls:
 //    /* nothing */ { ([], [])               }
 //  | decls vdecl { (($2 :: fst $1), snd $1) }
@@ -86,7 +113,6 @@ statement:
 //   | stmt_list stmt { $2 :: $1 }
 
 // stmt:
-//     expr SEMI                               { Expr $1               }
 //   | RETURN expr_opt SEMI                    { Return $2             }
 //   | LBRACE stmt_list RBRACE                 { Block(List.rev $2)    }
 //   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
@@ -94,6 +120,8 @@ statement:
 //   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
 //                                             { For($3, $5, $7, $9)   }
 //   | WHILE LPAREN expr RPAREN stmt           { While($3, $5)         }
+//
+
 
 // expr_opt:
 //     /* nothing */ { Noexpr }

@@ -6,15 +6,17 @@ let digits = digit+
 rule token = parse
     [' ' '\t' '\r'] { token lexbuf } (* Whitespace *)
   | "#"     { comment lexbuf } 
-  (* | '('      { LPAREN }
+  | '('      { LPAREN }
   | ')'      { RPAREN }
+  | ':'      { COLON  }
+  | ';'      { SEMI   }
+  (* 
+ 
   | '{'      { LBRACE }
   | '}'      { RBRACE }
   | ';'      { SEMI }
   | ','      { COMMA } *)
-  (* | "if"     { IF }
-  | "else"   { ELSE }
-  | "for"    { FOR }
+  (* | "for"    { FOR }
   | "while"  { WHILE }
   | "return" { RETURN }
   | "int"    { INT }
@@ -23,7 +25,8 @@ rule token = parse
   | "void"   { VOID }
   | "true"   { BLIT(true)  }
   | "false"  { BLIT(false) } *)
-
+  | "if"     { IF  }
+  | "else"   { ELSE } 
   | '\n'     { NEWLINE }
   | '='      { ASSIGN }
   | '+'      { PLUS }
