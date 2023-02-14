@@ -15,7 +15,6 @@ open Ast
 %start program
 %type <Ast.program> program
 
-%nonassoc NOELSE
 %nonassoc ELSE
 // %left SEMI COLON
 %right ASSIGN
@@ -52,10 +51,6 @@ statement:
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
     //(* TODO: add types because it is statically typed as another rule for initialization *)
-
-// TODO: add to LRM -> if you are using an else statement, you do not use a semi-colon. Use of semi-colon automatically indicates the end of that if scope.
-// TODO: look at the slides and use the microC dangling example here to see what we get as ast
-// if (2): 54 else
 
 //  
 //  if (x < 2): 
@@ -114,9 +109,6 @@ statement:
 
 // stmt:
 //   | RETURN expr_opt SEMI                    { Return $2             }
-//   | LBRACE stmt_list RBRACE                 { Block(List.rev $2)    }
-//   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
-//   | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7)        }
 //   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
 //                                             { For($3, $5, $7, $9)   }
 //   | WHILE LPAREN expr RPAREN stmt           { While($3, $5)         }
