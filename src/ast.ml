@@ -4,8 +4,12 @@ type unaryop = Not | Neg
 type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
              | Leq | Greater | Geq 
 
-type typ = Quack | Int | Bool | Float
-(* type bind = typ * string *)
+type typ = Quack | Int | Bool | Float | Mutex | Thread | String
+type bind = typ * string
+
+(* TODO: add string type, list type, func, etc. *)
+
+(* TODO: Arrow types, callables, lambdas *)
 
 type expr = 
     Literal of int
@@ -15,6 +19,8 @@ type expr =
   | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
+  (* TODO: maybe add Noexpr? might just need [] instead. think about it! *)
+  (* TODO: add function call as well *)
 
 type statement = 
     Expr of expr
@@ -22,7 +28,11 @@ type statement =
   | Define of typ * string * expr
   | If of expr * statement list * statement list
   | While of expr * statement list
+  | FunDef of bool * typ * string * bind list * statement list (* bool of fundef indicates whether store is present *)
+  | Return of expr
 
+
+(* TODO: add return statements *)
 
 type program = Program of statement list
 
@@ -160,17 +170,31 @@ let ast_of_ty = function
   | Bool -> "BOOL"
   | Quack -> "QUACK"
   | Float -> "FLOAT"
-  
+  | Mutex -> "MUTEX"
+  | Thread -> "THREAD"
+  | String -> "STRING"
+
+
 let rec
-  ast_of_s_list s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement st ^ " " ^ acc) "" s) ^ "]"
+  ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]"
 and  
-  ast_of_statement = function
-    Expr(e) -> ast_of_expr e
-  | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
-  | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr e ^ ")"
-  | If(e, s1, s2) -> "IF(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list s1 ^ ", " ^ ast_of_s_list s2 ^ ")"
-  | While(e, s) -> "WHILE(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list s ^ ")"
-
-
+  ast_of_statement n statement = 
+    let statement_str = 
+      match statement with
+        Expr(e) -> ast_of_expr e
+        | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
+        | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr e ^ ")"
+        | Return(e) -> "RETURN(" ^ ast_of_expr e ^ ")"
+        | If(e, s1, s2) -> "IF(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list (n + 1) s1 ^ ", " ^ ast_of_s_list (n + 1) s2 ^ ")"
+        | While(e, s) -> "WHILE(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list (n + 1 ) s ^ ")"
+        | FunDef(s, t, fname, f, b) ->  
+            "FUN(" ^ (if s then " STORE, " else " NOSTORE,") 
+            ^ ast_of_ty t ^ ", " ^ fname ^ ", " ^
+            "FORMALS(" ^ List.fold_left (fun acc (ty, x) -> acc ^ " " ^ "(" ^ ast_of_ty ty ^ ", " ^ x ^ ")") "" f ^ "), " ^ ast_of_s_list (n + 1) b ^ ")"
+    in 
+    "\n" ^ n_tabs n ^ statement_str
+and n_tabs n = 
+  if n = 0 then "" else "\t" ^ (n_tabs (n - 1))
+  
 let ast_of_program = function
-  | Program(statements) -> "PROGRAM[" ^ ast_of_s_list statements  ^ "]"
+  | Program(statements) -> "PROGRAM {" ^ ast_of_s_list 1 statements  ^ "}"

@@ -10,21 +10,26 @@ rule token = parse
   | ')'      { RPAREN }
   | ':'      { COLON  }
   | ';'      { SEMI   }
+  | ','      { COMMA }
   (* 
   | '{'      { LBRACE }
   | '}'      { RBRACE }
   | ';'      { SEMI }
-  | ','      { COMMA } *)
-  (*
-  | "return" { RETURN } *)
+   *)
   (* TODO: what about lists? *)
+  | "return" { RETURN }
   | "int"    { INT }
   | "bool"   { BOOL }
+  | "string" { STRING }
   | "float"  { FLOAT }
-  | "quack"   { QUACK } 
+  | "quack"  { QUACK } 
+  | "thread" { THREAD }
+  | "mutex"  { MUTEX }
   | "false"  { BLIT(false) }
-  | "true"   { BLIT(true)  }
-  | '\"' _* '\"'  as str { STRING(str) }  (* TODO: still testing, need to check this more. just takes the longest matching and ignores everythin in between starting and ending quote *)
+  | "true"   { BLIT(true)  } 
+  | "def"    { DEF }
+  | "store"  { STORE }
+  | '\"'[^'\n' '\"']*'\"'  as str { STRINGLIT(str) }  (*TODO: still testing, need to check this more. just takes the longest matching and ignores everythin in between starting and ending quote *)
   | "if"     { IF  }
   | "else"   { ELSE } 
   | "while"  { WHILE }
