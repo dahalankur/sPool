@@ -3,20 +3,21 @@ open Ast
 %}
 
 // %token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
-// %token RETURN IF ELSE FOR WHILE INT BOOL FLOAT VOID
-// %token <bool> BLIT
-// %token <string> FLIT
+// %token RETURN IF ELSE FOR  
 
 %token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD ASSIGN NEWLINE ELSE IF LPAREN RPAREN COLON SEMI
+%token INT BOOL FLOAT QUACK WHILE
 %token <int> LITERAL
+%token <bool> BLIT
 %token <string> NAME
+%token <string> STRING // TODO: not finalized
+%token <string> FLIT
 %token EOF
 
 %start program
 %type <Ast.program> program
 
 %nonassoc ELSE
-// %left SEMI COLON
 %right ASSIGN
 %left OR
 %left AND
@@ -25,7 +26,6 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIVIDE MOD
 %right NOT
-// %left NEWLINE
 
 %%
 
@@ -40,14 +40,25 @@ delimiter:
       NEWLINE           {}
     | delimiter NEWLINE {}
 
+typ:
+     INT   { Int   }
+   | BOOL  { Bool  }
+   | FLOAT { Float }
+   | QUACK { Quack  }
+// TODO: handle strings and lists later
+
+
 statement_list:
     /* nothing */                       { [] }
   | statement delimiter statement_list  { $1 :: $3 }
   | statement                           { [$1] }
 
+
 statement:
-      expr             { Expr($1)       }
-    | NAME ASSIGN expr { Assign($1, $3) } 
+      expr                 { Expr($1)       }
+    | typ NAME ASSIGN expr { Define($1, $2, $4) } 
+    | NAME ASSIGN expr     { Assign($1, $3) } 
+    | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
     //(* TODO: add types because it is statically typed as another rule for initialization *)
@@ -90,12 +101,6 @@ statement:
 //     typ ID                   { [($1,$2)]     }
 //   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
-// typ:
-//     INT   { Int   }
-//   | BOOL  { Bool  }
-//   | FLOAT { Float }
-//   | VOID  { Void  }
-
 // vdecl_list:
 //     /* nothing */    { [] }
 //   | vdecl_list vdecl { $2 :: $1 }
@@ -120,9 +125,10 @@ statement:
 //   | expr          { $1 }
 
 expr:
-//   | FLIT	     { Fliteral($1)           }
-//   | BLIT             { BoolLit($1)            }
-    LITERAL          {      Literal($1)       }
+    FLIT	           {      Fliteral($1)      }
+  | BLIT             {      BoolLit($1)       }
+  | LITERAL          {      Literal($1)       }
+  | STRING           {      StringLiteral($1) }
   | NAME             {      Var($1)           }
   | expr PLUS   expr { Binop($1, Add,   $3)   }
   | expr MINUS  expr { Binop($1, Sub,   $3)   }

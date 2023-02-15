@@ -4,13 +4,14 @@ type unaryop = Not | Neg
 type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
              | Leq | Greater | Geq 
 
-(* type typ = Quack | Int | Bool | Float
+type typ = Quack | Int | Bool | Float
 (* type bind = typ * string *)
-type statement = 
-  | Init of bind * expr *)
 
 type expr = 
     Literal of int
+  | BoolLit of bool
+  | Fliteral of string
+  | StringLiteral of string (* TODO: string not finalized *)
   | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
@@ -18,21 +19,18 @@ type expr =
 type statement = 
     Expr of expr
   | Assign of string * expr
+  | Define of typ * string * expr
   | If of expr * statement list * statement list
+  | While of expr * statement list
 
- (* type seq =
-    Expr of expr * seq
-  | Stmnt of statement * seq
-  | Eof  *)
 
 type program = Program of statement list
-
-  (* TODO: add more, how to encapsulate other criteria/conditions? *)
 
   (* 
 type expr =
     Literal of int
-  | Fliteral of string
+
+      | Fliteral of string
   | BoolLit of bool
   | Id of string
   | Binop of expr * op * expr
@@ -99,9 +97,9 @@ let string_of_op = function
 let string_of_uop = function
     Neg -> "-"
   | Not -> "!"
-
+(* 
 let rec string_of_expr = function
-    Literal(l) -> string_of_int l
+    Literal(l) -> string_of_literal l
   | Var(s) -> s
   (* | Fliteral(l) -> l
   | BoolLit(true) -> "true"
@@ -112,7 +110,7 @@ let rec string_of_expr = function
   (* | Assign(v, e) -> v ^ " = " ^ string_of_expr e
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")" *)
-  (* | _ -> "" *)
+  | _ -> "" *)
 (* 
 let rec string_of_stmt = function
     Block(stmts) ->
@@ -147,20 +145,31 @@ let string_of_program (vars, funcs) =
   String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
   String.concat "\n" (List.map string_of_fdecl funcs) *)
 
-
+  
 let rec ast_of_expr = function
-  Literal(l) -> "LIT(" ^ string_of_int l ^ ")"
+  Literal(l) -> "INT(" ^ string_of_int l ^ ")"
+| Fliteral(f) -> "FLOAT(" ^ f ^ ")"
+| BoolLit(b) -> "BOOL(" ^ string_of_bool b ^ ")"
+| StringLiteral(s) -> "STRING(" ^ s ^ ")"
 | Var(s) -> "VAR(" ^ s ^ ")"
 | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr e2 ^ ")"
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr e ^ ")"
 
-
+let ast_of_ty = function
+    Int -> "INT"
+  | Bool -> "BOOL"
+  | Quack -> "QUACK"
+  | Float -> "FLOAT"
+  
 let rec
-  ast_of_s_list s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement st ^ ", " ^ acc) "" s) ^ "]"
-and  ast_of_statement = function
+  ast_of_s_list s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement st ^ " " ^ acc) "" s) ^ "]"
+and  
+  ast_of_statement = function
     Expr(e) -> ast_of_expr e
   | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
+  | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr e ^ ")"
   | If(e, s1, s2) -> "IF(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list s1 ^ ", " ^ ast_of_s_list s2 ^ ")"
+  | While(e, s) -> "WHILE(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list s ^ ")"
 
 
 let ast_of_program = function
