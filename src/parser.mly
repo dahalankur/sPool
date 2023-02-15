@@ -82,11 +82,11 @@ statement_list:
 
 statement:
       expr                 { Expr($1)       }
-    | typ NAME ASSIGN expr { Define($1, $2, $4) } 
+    | typ NAME ASSIGN expr { Define($1, $2, $4) } // would it be better to name this "initialize" instead of define? Since technically this is declaration and initialization...maybe change in LRM too
     | NAME ASSIGN expr     { Assign($1, $3) } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
           { FunDef($2, $3, $4, $6, List.rev $10) }    
-    | RETURN expr      { Return($2) }
+    | RETURN expr      { Return($2) } // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
     | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
@@ -151,4 +151,3 @@ expr:
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | NOT expr         { Unop(Not, $2)          }
 //   | ID LPAREN args_opt RPAREN { Call($1, $3)  }
-//   | LPAREN expr RPAREN { $2                   }
