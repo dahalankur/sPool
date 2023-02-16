@@ -8,17 +8,17 @@ rule token = parse
   | "#"     { comment lexbuf } 
   | '('      { LPAREN }
   | ')'      { RPAREN }
+  | '['      { LSQUARE }
+  | ']'      { RSQUARE }
+  | '<'      { LANGLE }
+  | '>'      { RANGLE }
   | ':'      { COLON  }
   | ';'      { SEMI   }
   | ','      { COMMA }
-  (* 
-  | '{'      { LBRACE }
-  | '}'      { RBRACE }
-  | ';'      { SEMI }
-   *)
-  (* TODO: what about lists? *)
+  | "->"     { ARROW }
   | "return" { RETURN }
   | "int"    { INT }
+  | "list"   { LIST }
   | "bool"   { BOOL }
   | "string" { STRING }
   | "float"  { FLOAT }
@@ -28,6 +28,7 @@ rule token = parse
   | "false"  { BLIT(false) }
   | "true"   { BLIT(true)  } 
   | "def"    { DEF }
+  | "lambda" { LAMBDA }
   | "store"  { STORE }
   | '\"'[^'\n' '\"']*'\"'  as str { STRINGLIT(str) }  (*TODO: still testing, need to check this more. just takes the longest matching and ignores everythin in between starting and ending quote *)
   | "if"     { IF  }

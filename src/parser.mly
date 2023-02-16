@@ -8,8 +8,9 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD 
 %token ASSIGN ELSE IF WHILE
 %token INT BOOL FLOAT QUACK MUTEX THREAD STRING
-%token DEF STORE RETURN
-%token NEWLINE LPAREN RPAREN COLON SEMI COMMA
+%token DEF STORE RETURN ARROW LAMBDA
+%token NEWLINE LPAREN RPAREN COLON SEMI COMMA LSQUARE RSQUARE 
+%token LANGLE RANGLE LIST
 %token <int> LITERAL
 %token <bool> BLIT
 %token <string> NAME
@@ -43,13 +44,13 @@ store_opt:
                 { false }
   | STORE       { true  }
 
-// args_opt:
-//     /* nothing */ { [] }
-//   | args_list  { List.rev $1 }
+args_opt:
+    /* nothing */ { [] }
+  | args_list  { List.rev $1 }
 
-// args_list:
-//      expr                    { [$1] }
-//    | args_list COMMA expr { $3 :: $1 }
+args_list:
+     expr                    { [$1] }
+   | args_list COMMA expr { $3 :: $1 }
 
 formals_opt:
     /* nothing */ { [] }
@@ -63,6 +64,10 @@ delimiter:
       NEWLINE           {}
     | delimiter NEWLINE {}
 
+typ_list:
+    typ                       { [$1]     }
+  | typ_list COMMA typ        { $3 :: $1 }
+
 typ:
      INT    { Int    }
    | BOOL   { Bool   }
@@ -71,8 +76,12 @@ typ:
    | QUACK  { Quack  }
    | MUTEX  { Mutex  }
    | THREAD { Thread }
-// TODO: handle strings and lists later
+   | LPAREN typ_list ARROW typ RPAREN { Arrow(List.rev $2, $4) }
+   | LIST LANGLE typ RANGLE { List($3) }
 
+expr_opt:
+    /* nothing */ { Noexpr }
+  | expr          { $1 }
 
 statement_list:
     /* nothing */                       { [] }
@@ -86,48 +95,11 @@ statement:
     | NAME ASSIGN expr     { Assign($1, $3) } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
           { FunDef($2, $3, $4, $6, List.rev $10) }    
-    | RETURN expr      { Return($2) } // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
+    | RETURN expr_opt      { Return($2) } // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
     | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
 
-// decls:
-//    /* nothing */ { ([], [])               }
-//  | decls vdecl { (($2 :: fst $1), snd $1) }
-//  | decls fdecl { (fst $1, ($2 :: snd $1)) }
-
-// fdecl:
-//    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
-//      { { typ = $1;
-// 	 fname = $2;
-// 	 formals = List.rev $4;
-// 	 locals = List.rev $7;
-// 	 body = List.rev $8 } }
-
-
-
-// vdecl_list:
-//     /* nothing */    { [] }
-//   | vdecl_list vdecl { $2 :: $1 }
-
-// vdecl:
-//    typ ID SEMI { ($1, $2) }
-
-// stmt_list:
-//     /* nothing */  { [] }
-//   | stmt_list stmt { $2 :: $1 }
-
-// stmt:
-//   | RETURN expr_opt SEMI                    { Return $2             }
-//   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
-//                                             { For($3, $5, $7, $9)   }
-//   | WHILE LPAREN expr RPAREN stmt           { While($3, $5)         }
-//
-
-
-// expr_opt:
-//     /* nothing */ { Noexpr }
-//   | expr          { $1 }
 
 expr:
     FLIT	           {      Fliteral($1)      }
@@ -135,6 +107,7 @@ expr:
   | LITERAL          {      Literal($1)       }
   | STRINGLIT        {      StringLiteral($1) }
   | NAME             {      Var($1)           }
+  | LSQUARE args_opt RSQUARE   { ListLit($2)  }
   | expr PLUS   expr { Binop($1, Add,   $3)   }
   | expr MINUS  expr { Binop($1, Sub,   $3)   }
   | expr MOD    expr { Binop($1, Mod,   $3)   }
@@ -150,4 +123,7 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3)   }
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | NOT expr         { Unop(Not, $2)          }
-//   | ID LPAREN args_opt RPAREN { Call($1, $3)  }
+  | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, List.rev $8) }
+  | NAME LPAREN args_opt RPAREN { Call($1, $3)  } // TODO: this does not work with calling lambdas at the place where they are defined, but this should not be an issue
+
+// TODO: we are not adding dots now, and instead there will be C-like library functions that take in certain values and args and do the required thing

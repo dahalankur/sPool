@@ -4,7 +4,11 @@ type unaryop = Not | Neg
 type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
              | Leq | Greater | Geq 
 
-type typ = Quack | Int | Bool | Float | Mutex | Thread | String
+type typ = Quack | Int | Bool | Float | Mutex | Thread | String 
+          | Arrow of typ list * typ
+          | List of typ
+
+
 type bind = typ * string
 
 (* TODO: add string type, list type, func, etc. *)
@@ -14,15 +18,16 @@ type bind = typ * string
 type expr = 
     Literal of int
   | BoolLit of bool
+  | ListLit of expr list
   | Fliteral of string
   | StringLiteral of string (* TODO: string not finalized *)
   | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
-  (* TODO: maybe add Noexpr? might just need [] instead. think about it! *)
-  (* TODO: add function call as well *)
-
-type statement = 
+  | Lambda of typ * bind list * statement list
+  | Call of string * expr list 
+  | Noexpr
+and statement = 
     Expr of expr
   | Assign of string * expr
   | Define of typ * string * expr
@@ -155,17 +160,9 @@ let string_of_program (vars, funcs) =
   String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
   String.concat "\n" (List.map string_of_fdecl funcs) *)
 
-  
-let rec ast_of_expr = function
-  Literal(l) -> "INT(" ^ string_of_int l ^ ")"
-| Fliteral(f) -> "FLOAT(" ^ f ^ ")"
-| BoolLit(b) -> "BOOL(" ^ string_of_bool b ^ ")"
-| StringLiteral(s) -> "STRING(" ^ s ^ ")"
-| Var(s) -> "VAR(" ^ s ^ ")"
-| Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr e2 ^ ")"
-| Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr e ^ ")"
+  (* TODO: note: in the type checking phase, an empty list is given free pass and can take on any type! (this is what list<quack> means) *)
 
-let ast_of_ty = function
+let rec ast_of_ty = function
     Int -> "INT"
   | Bool -> "BOOL"
   | Quack -> "QUACK"
@@ -173,20 +170,37 @@ let ast_of_ty = function
   | Mutex -> "MUTEX"
   | Thread -> "THREAD"
   | String -> "STRING"
+  | Arrow(ts, t) -> "ARROW(" ^ (List.fold_left (fun acc t -> acc ^ " " ^ ast_of_ty t) "" ts) ^ ", " ^ ast_of_ty t ^ ")"
+  | List(t) -> "LISTTY(" ^ ast_of_ty t ^ ")"
 
-
-let rec
+let rec str_of_bindings = function
+    [] -> ""
+  | (t, x)::xs -> "(" ^ ast_of_ty t ^ ", " ^ x ^ ") " ^ str_of_bindings xs
+  
+let rec ast_of_expr n = function
+  Literal(l) -> "INT(" ^ string_of_int l ^ ")"
+| Fliteral(f) -> "FLOAT(" ^ f ^ ")"
+| BoolLit(b) -> "BOOL(" ^ string_of_bool b ^ ")"
+| StringLiteral(s) -> "STRING(" ^ s ^ ")"
+| Var(s) -> "VAR(" ^ s ^ ")"
+| Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr n e2 ^ ")"
+| Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"
+| Lambda(t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ str_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
+| Call(name, args) -> "CALL(" ^ name ^ ", " ^ " ARGS(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" args ^ "))"
+| ListLit(es) -> "LISTTY(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")"
+| Noexpr -> "NOEXPR"
+and 
   ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]"
 and  
   ast_of_statement n statement = 
     let statement_str = 
       match statement with
-        Expr(e) -> ast_of_expr e
-        | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr e ^ ")"
-        | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr e ^ ")"
-        | Return(e) -> "RETURN(" ^ ast_of_expr e ^ ")"
-        | If(e, s1, s2) -> "IF(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list (n + 1) s1 ^ ", " ^ ast_of_s_list (n + 1) s2 ^ ")"
-        | While(e, s) -> "WHILE(" ^ ast_of_expr e ^ ", " ^ ast_of_s_list (n + 1 ) s ^ ")"
+        Expr(e) -> ast_of_expr n e
+        | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr n e ^ ")"
+        | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr n e ^ ")"
+        | Return(e) -> "RETURN(" ^ ast_of_expr n e ^ ")"
+        | If(e, s1, s2) -> "IF(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1) s1 ^ ", " ^ ast_of_s_list (n + 1) s2 ^ ")"
+        | While(e, s) -> "WHILE(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1 ) s ^ ")"
         | FunDef(s, t, fname, f, b) ->  
             "FUN(" ^ (if s then " STORE, " else " NOSTORE,") 
             ^ ast_of_ty t ^ ", " ^ fname ^ ", " ^
