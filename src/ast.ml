@@ -11,8 +11,6 @@ type typ = Quack | Int | Bool | Float | Mutex | Thread | String
 
 type bind = typ * string
 
-(* TODO: add string type, list type, func, etc. *)
-
 (* TODO: Arrow types, callables, lambdas *)
 
 type expr = 
@@ -20,7 +18,7 @@ type expr =
   | BoolLit of bool
   | ListLit of expr list
   | Fliteral of string
-  | StringLiteral of string (* TODO: string not finalized *)
+  | StringLiteral of string
   | Var of string
   | Binop of expr * binop * expr
   | Unop of unaryop * expr
@@ -36,44 +34,10 @@ and statement =
   | FunDef of bool * typ * string * bind list * statement list (* bool of fundef indicates whether store is present *)
   | Return of expr
 
-
-(* TODO: add return statements *)
-
 type program = Program of statement list
 
-  (* 
-type expr =
-    Literal of int
-
-      | Fliteral of string
-  | BoolLit of bool
-  | Id of string
-  | Binop of expr * op * expr
-  | Unop of uop * expr
-  | Assign of string * expr
-  | Call of string * expr list
-  | Noexpr *)
-(* 
-type stmt =
-    Block of stmt list
-  | Expr of expr
-  | Return of expr
-  | If of expr * stmt * stmt
-  | For of expr * expr * expr * stmt
-  | While of expr * stmt
-
-type func_decl = {
-    typ : typ;
-    fname : string;
-    formals : bind list;
-    locals : bind list;
-    body : stmt list;
-  } *)
-
-(* type program = bind list * func_decl list *)
 
 (* Pretty-printing functions *)
-
 
 let ast_of_op = function
     Add -> "PLUS"
@@ -93,7 +57,7 @@ let ast_of_op = function
 let ast_of_uop = function
     Neg -> "NEG"
   | Not -> "NOT"
-
+(* 
 let string_of_op = function
     Add -> "+"
   | Sub -> "-"
@@ -111,7 +75,7 @@ let string_of_op = function
 
 let string_of_uop = function
     Neg -> "-"
-  | Not -> "!"
+  | Not -> "!" *)
 (* 
 let rec string_of_expr = function
     Literal(l) -> string_of_literal l
