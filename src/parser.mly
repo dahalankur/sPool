@@ -37,23 +37,23 @@ program:
       d_opt statement_list EOF    { Program(List.rev $2) }
 
 d_opt:
-                { }
-  | delimiter   { }
+    /* nothing */  { }
+  | delimiter      { }
 
 store_opt:
-                { false }
-  | STORE       { true  }
+    /* nothing */ { false }
+  | STORE         { true  }
 
 args_opt:
     /* nothing */ { [] }
   | args_list  { List.rev $1 }
 
 args_list:
-     expr                    { [$1] }
-   | args_list COMMA expr { $3 :: $1 }
+     expr                    { [$1]     }
+   | args_list COMMA expr    { $3 :: $1 }
 
 formals_opt:
-    /* nothing */ { [] }
+    /* nothing */ { []          }
   | formal_list   { List.rev $1 }
 
 formal_list:
@@ -95,7 +95,9 @@ statement:
     | NAME ASSIGN expr     { Assign($1, $3) } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
           { FunDef($2, $3, $4, $6, List.rev $10) }    
-    | RETURN expr_opt      { Return($2) } // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
+    | RETURN expr_opt      { Return($2) } 
+    // TODO: for return, shall we change the parsing rules so it only appears inside a function? (perhaps a return_opt rule before the SEMI token of function...change in LRM too if agreed)
+    // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
     | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI { If($3, List.rev $7, []) }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    { If($3, List.rev $7, List.rev $10) }
@@ -124,6 +126,6 @@ expr:
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | NOT expr         { Unop(Not, $2)          }
   | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, List.rev $8) }
-  | NAME LPAREN args_opt RPAREN { Call($1, $3)  } // TODO: this does not work with calling lambdas at the place where they are defined, but this should not be an issue
+  | NAME LPAREN args_opt RPAREN { Call($1, $3)  } // TODO: this does not work with calling lambdas at the place where they are defined, but this should not be an issue. for instance, lambda bool (int i): return false;(5) does not work (looks ugly; we don't want it to work anyway)
 
 // TODO: we are not adding dots now, and instead there will be C-like library functions that take in certain values and args and do the required thing
