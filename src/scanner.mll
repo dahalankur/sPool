@@ -58,4 +58,5 @@ rule token = parse
 
 and comment = parse
   | '\n' { NEWLINE }
+  | eof  { EOF }
   | _    { comment lexbuf }
