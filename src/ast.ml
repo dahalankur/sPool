@@ -169,7 +169,7 @@ and
     in 
     "\n" ^ n_tabs n ^ statement_str
 and n_tabs n = 
-  if n = 0 then "" else "\t" ^ (n_tabs (n - 1))
+  if n = 0 then "" else "    " ^ (n_tabs (n - 1))
   
 let ast_of_program = function
   | Program(statements) -> "PROGRAM {" ^ ast_of_s_list 1 statements  ^ "}"
