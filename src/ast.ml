@@ -8,10 +8,7 @@ type typ = Quack | Int | Bool | Float | Mutex | Thread | String
           | Arrow of typ list * typ
           | List of typ
 
-
 type bind = typ * string
-
-(* TODO: Arrow types, callables, lambdas *)
 
 type expr = 
     Literal of int
