@@ -1,6 +1,9 @@
-# runtests.py
-# Run the tests for sPool
-# Team Nautilus
+#  runtests.py
+#  Run the tests for sPool
+#  This script can be run as a standalone script, or from the Makefile
+#  Usage: python3 runtests.py [all|testname], where testname is the name of a 
+#                                             test directory in tests/
+#  Written by Team Nautilus on 02/20/2023
 
 import sys
 import os
@@ -11,6 +14,8 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 EXECUTABLE = SCRIPT_DIR + "/toplevel.native"
 FAILED = False
 
+# Takes a string as an argument, the path to a test directory
+# Runs the tests in the directory and reports the results
 def run_test(test):
     global FAILED
     
@@ -21,11 +26,15 @@ def run_test(test):
     fail_tests = sorted(glob.glob(test + "/fail-*.sP"))
     fail_expected = sorted(glob.glob(test + "/fail-*.err"))
 
-    # First run the tests that should succeed
+    # Run the tests that should succeed
     for test, expected in zip(success_tests, success_expected):
         name = test.split("/")[-1]
-        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).communicate(input=open(test, "rb").read())[0].decode("utf-8")
+        
+        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
+            communicate(input=open(test, "rb").read())[0].decode("utf-8")
         with open(expected, "r") as f: expected_output = f.read()
+        
+        # diff expected and actual output
         if output != expected_output:
             print(f"Test {name} FAILED. Expected output: {expected_output}, got: {output}")
             FAILED = True
@@ -37,10 +46,11 @@ def run_test(test):
         name = test.split("/")[-1]
         
         # read from stderr instead of stdout
-        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).communicate(input=open(test, "rb").read())[1].decode("utf-8")
+        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
+            communicate(input=open(test, "rb").read())[1].decode("utf-8")
         with open(expected, "r") as f: expected_output = f.read()
         
-        # empty stderr indicates the test expected to fail, but didn't
+        # empty stderr indicates the test was expected to fail, but didn't
         if output == "" or output != expected_output:
             print(f"Test {name} FAILED. Expected output: {expected_output}, got: {output}")
             FAILED = True
@@ -49,8 +59,8 @@ def run_test(test):
     
     print("-----------------\n")
 
-
-
+# Takes a string as an argument, either "all" or the name of a test directory
+# in tests/ and runs and reports the results of the tests
 def main(to_test):
     tests = []
     tests_dir = os.path.dirname(os.path.realpath(__file__)) + "/../tests/"
@@ -74,7 +84,8 @@ def main(to_test):
         sys.exit(1)
     else:
         print("All tests passed.")
-    
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("Usage: python3 runtests.py [all|testname]")
