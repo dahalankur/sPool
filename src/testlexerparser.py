@@ -31,12 +31,20 @@ def run_test(test):
         name = test.split("/")[-1]
         
         output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
-            communicate(input=open(test, "rb").read())[0].decode("utf-8")
+            communicate(input=open(test, "rb").read())
+        stdout = output[0].decode("utf-8")
+        stderr = output[1].decode("utf-8")
+        
+        if stderr != "":
+            print(f"Test {name} FAILED. Expected no errors, got: {stderr}")
+            FAILED = True
+            continue
+
         with open(expected, "r") as f: expected_output = f.read()
         
         # diff expected and actual output
-        if output != expected_output:
-            print(f"Test {name} FAILED. Expected output: {expected_output}, got: {output}")
+        if stdout != expected_output:
+            print(f"Test {name} FAILED. Expected output: {expected_output}, got: {stdout}")
             FAILED = True
         else:
             print(f"Test {name} PASSED.")

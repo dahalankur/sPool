@@ -1,0 +1,1 @@
+bool = 12 # bool is a type, not a variable name
