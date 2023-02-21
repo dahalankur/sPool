@@ -1,0 +1,55 @@
+                    The sPool Programming Language
+                        Scanner and Parser
+                           Team Nautilus
+                    
+                    Yuma Takahashi (yuma.takahashi@tufts.edu)
+                    Max Mitchell   (maxwell.mitchell@tufts.edu)
+                    Ankur Dahal    (ankur.dahal@tufts.edu)
+                    Etha Hua       (tianze.hua@tufts.edu)
+
+
+Compiling the sPool compiler:
+To compile the sPool compiler, run the following command in the
+`src` directory:
+
+    make
+
+This will build the driver program called `toplevel.native` 
+for the sPool "interpreter" as it stands.
+
+Testing:
+Currently, all tests for our lexer and parser are located in the `tests`
+directory. Each sub-directory in this directory contains tests for a specific
+unit of our lexer and parser. For instance, the sub-directory `fundef` inside 
+`tests` contains all tests for function definitions in sPool, and so on.
+
+There are a mix of positive and negative tests for our 
+lexer + parser, where we follow the conventions from MicroC from naming the 
+tests -- all positive tests reside in files starting with "test-" and ending
+in the extension .sP, whereas all negative tests (that we expect to fail 
+during lexing and parsing stage) reside in files starting with "fail-" and 
+ending in the extension .sP. The "gold standard AST" for tests that are expected
+to succeed are present in the corresponding .out files, which are later 
+compared during runtime by our testing script to ensure that the AST being 
+produced for a test case is identical to the AST we expect. For instance,
+the file `tests/assign/fail-assign2.err` contains the error output expected
+when the file `tests/assign/fail-assign2.sP` is fed to our compiler. The 
+expected output is diffed against the actual output to ensure we are actually 
+failing to parse this case. On the other hand, the file `tests/assign/test-assign3.sP`
+contains code that we expect to successfully parse, and the output AST we expect
+is present in `tests/assign/test-assign3.out` file which is diffed against the 
+actual AST obtained after feeding the former program to the sPool compiler.
+
+How to run tests:
+
+To run all tests, go to the `src` directory and type:
+
+            make test
+
+This should go and run all the tests, with the status of each test being 
+shown on the terminal output.
+
+Additional packages required to run: 
+We expect everything to run with basic OCaml tools installed 
+(ocamllex, ocamlyacc, ocaml). No additional packages are required to compile 
+the sPool compiler or to run the unit tests for the scanner and parser.
