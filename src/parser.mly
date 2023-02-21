@@ -71,7 +71,7 @@ typ:
    | STRING                           { String                 }
    | MUTEX                            { Mutex                  }
    | THREAD                           { Thread                 }
-   | LIST LT typ GT                   { List($3)               } // TODO: will using LT and GT here affect the precedence/associativity of other ops? I think not, but still something to think about
+   | LIST LT typ GT                   { List($3)               }
    | LPAREN typ_list ARROW typ RPAREN { Arrow(List.rev $2, $4) }
 
 expr_opt:
@@ -85,13 +85,11 @@ statement_list:
 
 statement:
       expr                 { Expr($1)           }
-    | typ NAME ASSIGN expr { Define($1, $2, $4) } // would it be better to name this "initialize" instead of define? Since technically this is declaration and initialization...maybe change in LRM too
+    | typ NAME ASSIGN expr { Define($1, $2, $4) }
     | NAME ASSIGN expr     { Assign($1, $3)     } 
     | RETURN expr_opt      { Return($2)         } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
                            { FunDef($2, $3, $4, $6, List.rev $10) }    
-    // TODO: for return, shall we change the parsing rules so it only appears inside a function? (perhaps a return_opt rule before the SEMI token of function...change in LRM too if agreed)
-    // TODO: this has to be expr_opt, since we can have a return; for functions that return quack (nothing) (also change in LRM!)
     | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7)            }
     | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI    { If($3, List.rev $7, [])           }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    
@@ -118,11 +116,7 @@ expr:
   | expr AND    expr { Binop($1, And,   $3)   }
   | expr OR     expr { Binop($1, Or,    $3)   }
   | NOT expr         { Unop(Not, $2)          }
-  | NAME LPAREN args_opt RPAREN { Call($1, $3)} // TODO: thread(print("hi")) is a parsing error. mention in lrm that reserved words can not be used as functions
+  | NAME LPAREN args_opt RPAREN { Call($1, $3)}
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, List.rev $8) }
-
-// TODO: mention in LRM that lambdas can not be CALLED at the site of definition if it's anonymous (for instance, lambda bool (int i): return false;(5) does not work)
-// TODO: we are not adding dots now, and instead there will be C-like library functions that take in certain values and args and do the required thing
-// TODO: in LRM, mention that we do NOT have parentheses for arithmetic ops...maybe we should add this? we get parsing error currently if we do (2 + 1). maybe we make a separate parsing rule called paren_opt that encapsulates this...should be pretty easy to do tbh. after adding this, test with nested parens like ((2 + 1) - 1), ((5 - 1)) should still be legal (i dont see why not?), (-1) + 131, -(2 + 2), etc. 
-// note: - (2 + 1) should produce the correct parsing results, etc. this should be tested while testing binop exprs
+  | LPAREN expr RPAREN { $2 }
