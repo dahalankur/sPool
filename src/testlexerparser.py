@@ -1,4 +1,4 @@
-#  runtests.py
+#  testlexerparser.py
 #  Run the tests for sPool
 #  This script can be run as a standalone script, or from the Makefile
 #  Usage: python3 runtests.py [all|testname], where testname is the name of a 
