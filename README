@@ -51,5 +51,6 @@ shown on the terminal output.
 
 Additional packages required to run: 
 We expect everything to run with basic OCaml tools installed 
-(ocamllex, ocamlyacc, ocaml). No additional packages are required to compile 
-the sPool compiler or to run the unit tests for the scanner and parser.
+(ocamllex, ocamlyacc, ocamlbuild, ocaml). No additional packages are 
+required to compile the sPool compiler or to run the unit tests 
+for the scanner and parser.

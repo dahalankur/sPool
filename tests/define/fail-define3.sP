@@ -1,0 +1,1 @@
+( -> quack) nope = 2 # arrow types must not be empty on either side of the ->

@@ -65,7 +65,7 @@ def run_test(test):
         else:
             print(f"Test {name} PASSED.")
     
-    print("-----------------\n")
+    print("\n" + "-----------------" * 3 + "\n")
 
 # Takes a string as an argument, either "all" or the name of a test directory
 # in tests/ and runs and reports the results of the tests

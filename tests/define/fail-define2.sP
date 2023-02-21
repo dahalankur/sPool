@@ -1,0 +1,1 @@
+notype good = 234 # notype is not a valid type
