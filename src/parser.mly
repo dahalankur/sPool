@@ -29,7 +29,7 @@ open Ast
 %%
 
 program: 
-    d_opt statement_list EOF { Program(List.rev $2) }
+    d_opt statement_list EOF { Program($2) }
 
 d_opt:
     /* nothing */  { }
@@ -89,11 +89,11 @@ statement:
     | NAME ASSIGN expr     { Assign($1, $3)     } 
     | RETURN expr_opt      { Return($2)         } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
-                           { FunDef($2, $3, $4, $6, List.rev $10) }    
-    | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, List.rev $7)            }
-    | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI    { If($3, List.rev $7, [])           }
+                           { FunDef($2, $3, $4, $6, $10) }    
+    | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, $7)            }
+    | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI    { If($3, $7, [])           }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    
-                                                               { If($3, List.rev $7, List.rev $10) }
+                                                               { If($3, $7, $10) }
 
 expr:
     FLIT	           {      Fliteral($1)      }
@@ -118,5 +118,5 @@ expr:
   | NOT expr         { Unop(Not, $2)          }
   | NAME LPAREN args_opt RPAREN { Call($1, $3)}
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
-  | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, List.rev $8) }
+  | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, $8) }
   | LPAREN expr RPAREN { $2 }

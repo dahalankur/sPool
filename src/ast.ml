@@ -56,19 +56,20 @@ let ast_of_uop = function
   | Not -> "NOT"
 
 let rec ast_of_ty = function
-    Int -> "INT"
-  | Bool -> "BOOL"
-  | Quack -> "QUACK"
-  | Float -> "FLOAT"
-  | Mutex -> "MUTEX"
-  | Thread -> "THREAD"
-  | String -> "STRING"
-  | Arrow(ts, t) -> "ARROW(" ^ (List.fold_left (fun acc t -> acc ^ " " ^ ast_of_ty t) "" ts) ^ ", " ^ ast_of_ty t ^ ")"
+    Int -> "INTTY"
+  | Bool -> "BOOLTY"
+  | Quack -> "QUACKTY"
+  | Float -> "FLOATTY"
+  | Mutex -> "MUTEXTY"
+  | Thread -> "THREADTY"
+  | String -> "STRINGTY"
+  | Arrow(ts, t) -> "ARROWTY(" ^ (List.fold_left (fun acc t -> (if acc = "" then acc else acc ^ " * ") ^ ast_of_ty t) "" ts) ^ " -> " ^ ast_of_ty t ^ ")"
   | List(t) -> "LISTTY(" ^ ast_of_ty t ^ ")"
 
 let rec str_of_bindings = function
     [] -> ""
-  | (t, x)::xs -> "(" ^ ast_of_ty t ^ ", " ^ x ^ ") " ^ str_of_bindings xs
+  | [(t, x)]  ->  "(" ^ ast_of_ty t ^ ", " ^ x ^ ")"
+  | (t, x)::xs -> "(" ^ ast_of_ty t ^ ", " ^ x ^ "), " ^ str_of_bindings xs
   
 let rec ast_of_expr n = function
   Literal(l) -> "INT(" ^ string_of_int l ^ ")"
@@ -79,11 +80,11 @@ let rec ast_of_expr n = function
 | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr n e2 ^ ")"
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"
 | Lambda(t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ str_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
-| Call(name, args) -> "CALL(" ^ name ^ "," ^ " ARGS(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" args ^ "))" (*TODO: extra spaces*)
-| ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")" (*TODO: extra spaces*)
+| Call(name, args) -> "CALL(" ^ name ^ "," ^ " ARGS(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ ast_of_expr n ex) "" args ^ "))"
+| ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ ast_of_expr n ex) "" es ^ ")"
 | Noexpr -> "NOEXPR"
 and 
-  ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]" (*TODO: extra spaces*)
+  ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> acc ^ " " ^ ast_of_statement n st) "" s) ^ "]"
 and  
   ast_of_statement n statement = 
     let statement_str = 
@@ -94,10 +95,10 @@ and
         | Return(e) -> "RETURN(" ^ ast_of_expr n e ^ ")"
         | If(e, s1, s2) -> "IF(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1) s1 ^ ", " ^ ast_of_s_list (n + 1) s2 ^ ")"
         | While(e, s) -> "WHILE(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1 ) s ^ ")"
-        | FunDef(s, t, fname, f, b) ->  
-            "FUN(" ^ (if s then " STORE, " else " NOSTORE,") 
+        | FunDef(s, t, fname, fs, b) ->  
+            "FUN(" ^ (if s then "STORE, " else "NOSTORE, ") 
             ^ ast_of_ty t ^ ", " ^ fname ^ ", " ^
-            "FORMALS(" ^ List.fold_left (fun acc (ty, x) -> acc ^ " " ^ "(" ^ ast_of_ty ty ^ ", " ^ x ^ ")") "" f ^ "), " ^ ast_of_s_list (n + 1) b ^ ")" (* TODO: extra space *)
+            "FORMALS(" ^ str_of_bindings fs ^ "), " ^ ast_of_s_list (n + 1) b ^ ")"
     in 
     "\n" ^ n_tabs n ^ statement_str
 and n_tabs n = 
