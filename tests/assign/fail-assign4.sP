@@ -1,0 +1,1 @@
+var with spaces = 25 # of course, identifiers must not have spaces between them

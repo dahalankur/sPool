@@ -124,3 +124,5 @@ expr:
 
 // TODO: mention in LRM that lambdas can not be CALLED at the site of definition if it's anonymous (for instance, lambda bool (int i): return false;(5) does not work)
 // TODO: we are not adding dots now, and instead there will be C-like library functions that take in certain values and args and do the required thing
+// TODO: in LRM, mention that we do NOT have parentheses for arithmetic ops...maybe we should add this? we get parsing error currently if we do (2 + 1). maybe we make a separate parsing rule called paren_opt that encapsulates this...should be pretty easy to do tbh. after adding this, test with nested parens like ((2 + 1) - 1), ((5 - 1)) should still be legal (i dont see why not?), (-1) + 131, -(2 + 2), etc. 
+// note: - (2 + 1) should produce the correct parsing results, etc. this should be tested while testing binop exprs
