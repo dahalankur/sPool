@@ -1,0 +1,8 @@
+PROGRAM {[ 
+    ASSIGN(myList, LIST(INT(1), INT(2), INT(3), INT(4), INT(5))) 
+    ASSIGN(myList2, VAR(myList)) 
+    ASSIGN(heterogeneous, LIST(BOOL(true), BOOL(false), LIST(INT(1)))) 
+    ASSIGN(myList3, CALL(getList, ARGS(INT(3), INT(1), BOOL(true)))) 
+    ASSIGN(isTrue, BOOL(false)) 
+    ASSIGN(myGpa, FLOAT(2.0)) 
+    ASSIGN(myFunkyString, STRING("this is a string with non-ascii characters: 你好€ÒÓ˝”"))]}

@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    ASSIGN(isGood, BINOP(BINOP(BOOL(false), AND, UNOP(NOT, BOOL(true))), OR, BINOP(BOOL(true), AND, BOOL(true)))) 
+    ASSIGN(assignment, INT(5)) 
+    ASSIGN(my_hw, STRING("a lot")) 
+    ASSIGN(cs107, BINOP(BINOP(STRING("fun"), AND, STRING("easy")), OR, BINOP(STRING("hard"), AND, BINOP(STRING("boring"), PLUS, LIST(STRING("ok"), LIST(STRING("nice")))))))]}

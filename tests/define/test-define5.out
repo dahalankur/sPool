@@ -1,0 +1,7 @@
+PROGRAM {[ 
+    DEFINE(ARROWTY(INTTY * BOOLTY * THREADTY * MUTEXTY * LISTTY(LISTTY(INTTY)) -> QUACKTY), myFun, LAMBDA(QUACKTY, FORMALS((INTTY, i), (BOOLTY, b), (THREADTY, t), (MUTEXTY, m), (LISTTY(LISTTY(INTTY)), l)), [ 
+        ASSIGN(i, BINOP(BINOP(BINOP(VAR(b), OR, VAR(t)), OR, VAR(m)), OR, VAR(l))) 
+        CALL(lock, ARGS(VAR(m))) 
+        CALL(List_append, ARGS(VAR(l), LIST(UNOP(NEG, INT(123))))) 
+        CALL(unlock, ARGS(VAR(m))) 
+        RETURN(NOEXPR)]))]}

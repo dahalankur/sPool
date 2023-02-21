@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    ASSIGN(valid_var, VAR(valid_var)) 
+    ASSIGN(valid_var, BINOP(BINOP(BINOP(INT(2), TIMES, INT(2)), PLUS, VAR(valid_var)), OR, BINOP(BOOL(false), AND, UNOP(NOT, INT(5))))) 
+    ASSIGN(counter, BINOP(VAR(i), PLUS, INT(1))) 
+    ASSIGN(counter, BINOP(BINOP(VAR(valid_var), PLUS, INT(2)), MINUS, BINOP(BINOP(INT(8), TIMES, INT(2)), TIMES, UNOP(NOT, BOOL(false)))))]}

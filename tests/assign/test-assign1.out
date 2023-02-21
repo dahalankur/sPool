@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    ASSIGN(name, VAR(expr)) 
+    ASSIGN(myvar, INT(3)) 
+    ASSIGN(nam2e, STRING("another valid assignment"))]}

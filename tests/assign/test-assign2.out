@@ -1,0 +1,7 @@
+PROGRAM {[ 
+    ASSIGN(myfun, LAMBDA(QUACKTY, FORMALS((INTTY, j)), [ 
+        RETURN(BINOP(VAR(j), OR, BOOL(false)))])) 
+    ASSIGN(another_var, CALL(myfun, ARGS(INT(1)))) 
+    ASSIGN(myvar, INT(1)) 
+    ASSIGN(anotherVar, BINOP(BINOP(VAR(myvar), PLUS, VAR(myvar)), OR, BINOP(BOOL(false), AND, BINOP(VAR(myvar), TIMES, UNOP(NEG, VAR(myvar)))))) 
+    ASSIGN(nice2beme, BINOP(VAR(myvar), PLUS, BINOP(BINOP(BINOP(VAR(myvar), OR, BOOL(false)), AND, VAR(myvar)), TIMES, UNOP(NEG, BINOP(VAR(myvar), DIV, INT(1))))))]}

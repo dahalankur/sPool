@@ -1,0 +1,12 @@
+PROGRAM {[ 
+    FUN(STORE, ARROWTY(INTTY * BOOLTY -> BOOLTY), specialFun, FORMALS((ARROWTY(INTTY -> BOOLTY), f), (THREADTY, t)), [ 
+        CALL(thread_join, ARGS(VAR(t))) 
+        DEFINE(INTTY, c, BINOP(INT(123), PLUS, FLOAT(1.321))) 
+        DEFINE(BOOLTY, b, BOOL(true)) 
+        FUN(NOSTORE, BOOLTY, g, FORMALS((INTTY, x)), [ 
+            RETURN(BINOP(CALL(f, ARGS(VAR(x))), AND, VAR(b)))]) 
+        RETURN(LAMBDA(BOOLTY, FORMALS((INTTY, x), (BOOLTY, c)), [ 
+            RETURN(BINOP(CALL(g, ARGS(VAR(x))), OR, VAR(c)))]))]) 
+    CALL(specialFun, ARGS(LAMBDA(BOOLTY, FORMALS((INTTY, x)), [ 
+        RETURN(BINOP(VAR(x), GREATER, INT(0)))]), CALL(thread_create, ARGS(LAMBDA(QUACKTY, FORMALS(), [ 
+        CALL(sleep, ARGS(INT(1)))])))))]}

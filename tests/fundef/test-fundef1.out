@@ -1,0 +1,10 @@
+PROGRAM {[ 
+    FUN(NOSTORE, INTTY, outer, FORMALS(), [ 
+        FUN(STORE, BOOLTY, inner, FORMALS((INTTY, i), (BOOLTY, j), (MUTEXTY, m22)), [ 
+            IF(INT(1), [ 
+                INT(3)], [ 
+                IF(INT(2), [ 
+                    INT(4)], [ 
+                    INT(5)])]) 
+            RETURN(INT(0))]) 
+        RETURN(VAR(inner))])]}
