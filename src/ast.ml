@@ -11,25 +11,25 @@ type typ = Quack | Int | Bool | Float | Mutex | Thread | String
 type bind = typ * string
 
 type expr = 
-    Literal of int
-  | BoolLit of bool
-  | ListLit of expr list
-  | Fliteral of string
-  | StringLiteral of string
-  | Var of string
-  | Binop of expr * binop * expr
-  | Unop of unaryop * expr
-  | Lambda of typ * bind list * statement list
-  | Call of string * expr list 
-  | Noexpr
+    Literal of int       (* Max *)
+  | BoolLit of bool      (* Max *)
+  | ListLit of expr list (* Max *)
+  | Fliteral of string   (* Max *)
+  | StringLiteral of string (* Max *)
+  | Var of string           (* Max *)
+  | Binop of expr * binop * expr (* Max *)
+  | Unop of unaryop * expr       (* Max *)
+  | Lambda of typ * bind list * statement list (* Etha *)
+  | Call of string * expr list (* Etha *)
+  | Noexpr              (* Etha *)
 and statement = 
     Expr of expr
-  | Assign of string * expr
-  | Define of typ * string * expr
-  | If of expr * statement list * statement list
-  | While of expr * statement list
-  | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
-  | Return of expr
+  | Assign of string * expr (* Ank *)
+  | Define of typ * string * expr (* Ank *)
+  | If of expr * statement list * statement list (* Yuma *)
+  | While of expr * statement list (* Yuma *)
+  | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *) (* Ank *)
+  | Return of expr (* Etha *)
 
 type program = Program of statement list
 
@@ -79,11 +79,11 @@ let rec ast_of_expr n = function
 | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr n e2 ^ ")"
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"
 | Lambda(t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ str_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
-| Call(name, args) -> "CALL(" ^ name ^ ", " ^ " ARGS(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" args ^ "))"
-| ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")"
+| Call(name, args) -> "CALL(" ^ name ^ "," ^ " ARGS(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" args ^ "))" (*TODO: extra spaces*)
+| ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")" (*TODO: extra spaces*)
 | Noexpr -> "NOEXPR"
 and 
-  ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]"
+  ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]" (*TODO: extra spaces*)
 and  
   ast_of_statement n statement = 
     let statement_str = 
@@ -97,7 +97,7 @@ and
         | FunDef(s, t, fname, f, b) ->  
             "FUN(" ^ (if s then " STORE, " else " NOSTORE,") 
             ^ ast_of_ty t ^ ", " ^ fname ^ ", " ^
-            "FORMALS(" ^ List.fold_left (fun acc (ty, x) -> acc ^ " " ^ "(" ^ ast_of_ty ty ^ ", " ^ x ^ ")") "" f ^ "), " ^ ast_of_s_list (n + 1) b ^ ")"
+            "FORMALS(" ^ List.fold_left (fun acc (ty, x) -> acc ^ " " ^ "(" ^ ast_of_ty ty ^ ", " ^ x ^ ")") "" f ^ "), " ^ ast_of_s_list (n + 1) b ^ ")" (* TODO: extra space *)
     in 
     "\n" ^ n_tabs n ^ statement_str
 and n_tabs n = 

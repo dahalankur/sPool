@@ -28,7 +28,7 @@ rule token = parse
   | "def"    { DEF }
   | "lambda" { LAMBDA }
   | "store"  { STORE }
-  | '\"'[^'\n' '\"']*'\"'  as str { STRINGLIT(str) }  (*TODO: still testing, need to check this more. just takes the longest matching and ignores everythin in between starting and ending quote *)
+  | '\"'[^'\n' '\"']*'\"'  as str { STRINGLIT(str) }
   | "if"     { IF  }
   | "else"   { ELSE } 
   | "while"  { WHILE }
