@@ -36,7 +36,7 @@ def run_test(test):
         stderr = output[1].decode("utf-8")
         
         if stderr != "":
-            print(f"Test {name} FAILED. Expected no errors, got: {stderr}")
+            print(f"\033[91mTest {name} FAILED.\033[0m Expected no errors, got:\n{stderr}")
             FAILED = True
             continue
 
@@ -44,10 +44,10 @@ def run_test(test):
         
         # diff expected and actual output
         if stdout != expected_output:
-            print(f"Test {name} FAILED. Expected output: {expected_output}, got: {stdout}")
+            print(f"\033[91mTest {name} FAILED.\033[0m Expected output: {expected_output}, got:\n{stdout}")
             FAILED = True
         else:
-            print(f"Test {name} PASSED.")
+            print(f"\033[92mTest {name} PASSED.\033[0m")
     
     # Run the tests that should fail
     for test, expected in zip(fail_tests, fail_expected):
@@ -60,10 +60,13 @@ def run_test(test):
         
         # empty stderr indicates the test was expected to fail, but didn't
         if output == "" or output != expected_output:
-            print(f"Test {name} FAILED. Expected output: {expected_output}, got: {output}")
+            
+            print(f"\033[91mTest {name} FAILED.\033[0m Expected output: {expected_output}, got:\n{output}")
             FAILED = True
         else:
-            print(f"Test {name} PASSED.")
+            # print this in GREEN color in the terminal
+            print(f"\033[92mTest {name} PASSED.\033[0m")
+
     
     print("\n" + "-----------------" * 3 + "\n")
 
@@ -88,10 +91,10 @@ def main(to_test):
         run_test(test)
     
     if FAILED:
-        print("Some tests failed. Please check the output above.")
+        print(f"\033[91mSome tests failed. Please check the test output above.\033[0m")
         sys.exit(1)
     else:
-        print("All tests passed.")
+       print(f"\033[92mAll tests passed.\033[0m")
 
 
 if __name__ == '__main__':
