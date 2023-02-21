@@ -28,7 +28,7 @@ and statement =
   | Define of typ * string * expr
   | If of expr * statement list * statement list
   | While of expr * statement list
-  | FunDef of bool * typ * string * bind list * statement list (* bool of fundef indicates whether store is present *)
+  | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
   | Return of expr
 
 type program = Program of statement list
@@ -55,8 +55,6 @@ let ast_of_uop = function
     Neg -> "NEG"
   | Not -> "NOT"
 
-  (* TODO: note: in the type checking phase, an empty list is given free pass and can take on any type! (this is what list<quack> means) *)
-
 let rec ast_of_ty = function
     Int -> "INT"
   | Bool -> "BOOL"
@@ -82,7 +80,7 @@ let rec ast_of_expr n = function
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"
 | Lambda(t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ str_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
 | Call(name, args) -> "CALL(" ^ name ^ ", " ^ " ARGS(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" args ^ "))"
-| ListLit(es) -> "LISTTY(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")"
+| ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> acc ^ " " ^ ast_of_expr n ex) "" es ^ ")"
 | Noexpr -> "NOEXPR"
 and 
   ast_of_s_list n s = "[" ^ (List.fold_left (fun acc st -> ast_of_statement n st ^ " " ^ acc) "" s) ^ "]"

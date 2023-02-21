@@ -6,7 +6,7 @@ open Ast
 %token ASSIGN ELSE IF WHILE
 %token INT BOOL FLOAT QUACK MUTEX THREAD STRING LIST ARROW
 %token DEF STORE RETURN LAMBDA
-%token NEWLINE LPAREN RPAREN COLON SEMI COMMA LSQUARE RSQUARE LANGLE RANGLE EOF
+%token NEWLINE LPAREN RPAREN COLON SEMI COMMA LSQUARE RSQUARE EOF
 %token <int> LITERAL
 %token <bool> BLIT
 %token <string> NAME
@@ -71,7 +71,7 @@ typ:
    | STRING                           { String                 }
    | MUTEX                            { Mutex                  }
    | THREAD                           { Thread                 }
-   | LIST LANGLE typ RANGLE           { List($3)               }
+   | LIST LT typ GT                   { List($3)               } // TODO: will using LT and GT here affect the precedence/associativity of other ops? I think not, but still something to think about
    | LPAREN typ_list ARROW typ RPAREN { Arrow(List.rev $2, $4) }
 
 expr_opt:
@@ -118,7 +118,7 @@ expr:
   | expr AND    expr { Binop($1, And,   $3)   }
   | expr OR     expr { Binop($1, Or,    $3)   }
   | NOT expr         { Unop(Not, $2)          }
-  | NAME LPAREN args_opt RPAREN { Call($1, $3)}
+  | NAME LPAREN args_opt RPAREN { Call($1, $3)} // TODO: thread(print("hi")) is a parsing error. mention in lrm that reserved words can not be used as functions
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
   | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, List.rev $8) }
 

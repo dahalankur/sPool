@@ -10,8 +10,8 @@ rule token = parse
   | ')'      { RPAREN }
   | '['      { LSQUARE }
   | ']'      { RSQUARE }
-  | '<'      { LANGLE }
-  | '>'      { RANGLE }
+  (* | '<'      { LANGLE }  TODO: these "shadow" the GT and LT operators!! so a fix is to use GT and LT For lists instead of these *) 
+  (* | '>'      { RANGLE } *)
   | ':'      { COLON  }
   | ';'      { SEMI   }
   | ','      { COMMA }
