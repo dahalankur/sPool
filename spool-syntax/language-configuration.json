@@ -1,0 +1,26 @@
+{
+    "comments": {
+        "lineComment": "#",
+        "blockComment": [ ]
+    },
+    // symbols used as brackets
+    "brackets": [
+        ["(", ")"],
+        [":", ";"] // not brackets specifically, but they are similar to { } in C/C++
+    ],
+    // symbols that are auto closed when typing
+    "autoClosingPairs": [
+        [":", ";"],
+        ["[", "]"],
+        ["(", ")"],
+        ["\"", "\""]
+    ],
+    // symbols that can be used to surround a selection
+    "surroundingPairs": [
+        ["(", ")"],
+        ["\"", "\""]
+    ],
+    "indentationRules": {
+		"increaseIndentPattern": "^\\s*\\b(def|if|lambda|while)\\b"
+	}
+}

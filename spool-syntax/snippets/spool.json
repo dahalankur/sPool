@@ -1,0 +1,56 @@
+{
+    "lambda" : {
+        "prefix" : "lamb",
+        "body" : [
+            "lambda $1 ($2):",
+            "\t$0;"
+        ],
+        "description" : "lambda expression"
+    },
+
+    "fundef-nostore" : {
+        "prefix" : "def-nostore",
+        "body" : [
+            "def $1 $2($3):",
+            "\t$0;"
+        ],
+        "description" : "function definition (without store)"
+    },
+
+    "fundef-store" : {
+        "prefix" : "def-store",
+        "body" : [
+            "def store $1 $2($3):",
+            "\t$0;"
+        ],
+        "description" : "function definition (with store)"
+    },
+
+    "if-else": {
+        "prefix" : "ifelse",
+        "body" : [
+            "if ($1):",
+            "\t$2",
+            "else $3;"
+        ],
+        "description" : "if-else snippet"
+    },
+
+    "if-noelse": {
+        "prefix" : "if",
+        "body" : [
+            "if ($1):",
+            "\t$0;"
+        ],
+        "description" : "if snippet (without else)"
+    },
+
+    "while": {
+        "prefix" : "whil",
+        "body" : [
+            "while ($1):",
+            "\t$0;"
+        ],
+        "description" : "while loop"
+    }
+}

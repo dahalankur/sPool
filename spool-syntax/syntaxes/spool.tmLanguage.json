@@ -1,0 +1,81 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "sPool",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#types"
+		},
+		{
+			"include": "#others"
+		},
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#operators"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.spool",
+					"match": "\\b(if|while|else|return|def|lambda)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.spool",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.spool",
+					"match": "\\\\."
+				}
+			]
+		},
+		"types": {
+			"patterns": [
+				{
+					"name": "storage.type.spool",
+					"match": "\\b(int|bool|float|string|quack|thread|mutex|list)\\b"
+				}
+			]
+		},
+		"others": {
+			"patterns": [
+				{
+					"name": "variable.name.spool",
+					"match": "\\b(true|false|store)\\b"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.spool",
+					"match": "(#).*"
+				}
+			]
+		},
+		"operators": {
+			"patterns": [{
+				"name": "constant.character.escape.spool",
+				"match": "\\+|\\-|\\/|\\*|\\%|<|>|=|!=|&&|\\|\\||!",
+				"captures": {
+					"0": {
+						
+					}
+				}
+			}]
+		}
+	},
+	"scopeName": "source.sP"
+}

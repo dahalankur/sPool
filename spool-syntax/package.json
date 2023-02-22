@@ -1,0 +1,41 @@
+{
+  "name": "spool-syntax",
+  "displayName": "sPool-syntax",
+  "description": "Syntax highlighter for the sPool programming language",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "spool",
+        "aliases": [
+          "sPool",
+          "spool"
+        ],
+        "extensions": [
+          ".sP",
+          ".sp"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "spool",
+        "scopeName": "source.sP",
+        "path": "./syntaxes/spool.tmLanguage.json"
+      }
+    ],
+      "snippets": [
+        {
+          "language": "spool",
+          "path": "./snippets/spool.json"
+        }
+      ]
+    }
+  }
