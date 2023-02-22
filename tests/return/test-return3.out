@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    FUN(STORE, BOOLTY, myFunc, FORMALS((INTTY, a), (BOOLTY, b)), [ 
+        RETURN(VAR(a)) 
+        RETURN(BINOP(VAR(a), PLUS, INT(1)))])]}
