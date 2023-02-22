@@ -1,4 +1,4 @@
-name: Makefile CI
+name: sPool Test
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  lexer-parser-test:
 
     runs-on: ubuntu-latest
 
