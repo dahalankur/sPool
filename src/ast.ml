@@ -16,7 +16,7 @@ type expr =
   | ListLit of expr list
   | Fliteral of string
   | StringLiteral of string
-  | Var of string           (* Max *)
+  | Var of string           
   | Binop of expr * binop * expr (* Max *)
   | Unop of unaryop * expr       (* Max *)
   | Lambda of typ * bind list * statement list
