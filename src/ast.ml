@@ -20,15 +20,15 @@ type expr =
   | Binop of expr * binop * expr (* Max *)
   | Unop of unaryop * expr       (* Max *)
   | Lambda of typ * bind list * statement list (* Etha *)
-  | Call of string * expr list (* Etha *)
-  | Noexpr              (* Etha *)
+  | Call of string * expr list
+  | Noexpr
 and statement = 
     Expr of expr
-  | Assign of string * expr (* Ank *)
-  | Define of typ * string * expr (* Ank *)
+  | Assign of string * expr
+  | Define of typ * string * expr
   | If of expr * statement list * statement list (* Yuma *)
   | While of expr * statement list (* Yuma *)
-  | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *) (* Ank *)
+  | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
   | Return of expr (* Etha *)
 
 type program = Program of statement list

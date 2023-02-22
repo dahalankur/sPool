@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    LAMBDA(ARROWTY(QUACKTY -> ARROWTY(QUACKTY -> STRINGTY)), FORMALS(), [ 
+        LAMBDA(ARROWTY(QUACKTY -> STRINGTY), FORMALS(), [ 
+            LAMBDA(STRINGTY, FORMALS(), [ 
+                RETURN(STRING("hello there"))])])])]}

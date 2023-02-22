@@ -1,0 +1,15 @@
+PROGRAM {[ 
+    DEFINE(ARROWTY(QUACKTY -> QUACKTY), it, LAMBDA(QUACKTY, FORMALS(), [ 
+        BINOP(BINOP(INT(1), PLUS, BINOP(BINOP(INT(3), DIV, INT(2)), TIMES, INT(5))), PLUS, UNOP(NEG, INT(2))) 
+        ASSIGN(a, INT(7)) 
+        DEFINE(INTTY, b, INT(4)) 
+        FUN(STORE, INTTY, myFunc, FORMALS((INTTY, y)), [ 
+            RETURN(VAR(y))]) 
+        WHILE(BINOP(VAR(a), GREATER, INT(2)), [ 
+            ASSIGN(a, BINOP(VAR(a), MINUS, INT(1)))]) 
+        IF(BINOP(VAR(a), LESS, INT(2)), [ 
+            CALL(print, ARGS(STRING("hello")))], [ 
+            IF(BINOP(VAR(a), GREATER, INT(0)), [ 
+                CALL(print, ARGS(STRING("good")))], []) 
+            CALL(print, ARGS(STRING("too small")))]) 
+        RETURN(NOEXPR)]))]}

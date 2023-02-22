@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    RETURN(INT(3)) 
+    RETURN(STRING("goodbye world")) 
+    RETURN(BOOL(true)) 
+    RETURN(FLOAT(7.14))]}

@@ -1,0 +1,9 @@
+PROGRAM {[ 
+    LAMBDA(INTTY, FORMALS((INTTY, x), (INTTY, y)), []) 
+    LAMBDA(INTTY, FORMALS((INTTY, x), (INTTY, y)), [ 
+        ASSIGN(a, INT(5)) 
+        FLOAT(3.43) 
+        CALL(c, ARGS(INT(1), BOOL(false)))]) 
+    LAMBDA(STRINGTY, FORMALS((BOOLTY, x), (INTTY, y)), [ 
+        FUN(NOSTORE, INTTY, myFunc, FORMALS((INTTY, x)), [ 
+            RETURN(VAR(x))])])]}

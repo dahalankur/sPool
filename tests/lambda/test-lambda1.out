@@ -1,0 +1,7 @@
+PROGRAM {[ 
+    LAMBDA(INTTY, FORMALS(), [ 
+        RETURN(INT(0))]) 
+    LAMBDA(INTTY, FORMALS((INTTY, x)), [ 
+        RETURN(VAR(x))]) 
+    LAMBDA(INTTY, FORMALS((INTTY, x), (BOOLTY, y), (STRINGTY, z)), [ 
+        RETURN(VAR(x))])]}

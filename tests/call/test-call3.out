@@ -1,0 +1,3 @@
+PROGRAM {[ 
+    CALL(times2, ARGS(CALL(add2, ARGS(CALL(negate, ARGS(INT(57))))))) 
+    CALL(swap, ARGS(CALL(swap, ARGS(CALL(swap, ARGS(CALL(swap, ARGS(BOOL(true), CALL(isZero, ARGS(INT(1)))))))))))]}

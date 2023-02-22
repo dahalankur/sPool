@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    CALL(myFunc1, ARGS()) 
+    CALL(myFunc2, ARGS(INT(3))) 
+    CALL(myFunc3, ARGS(BOOL(true), FLOAT(3.14), VAR(fname)))]}
