@@ -1,0 +1,7 @@
+PROGRAM {[ 
+    BOOL(true) 
+    BOOL(false) 
+    VAR(True) 
+    VAR(False) 
+    VAR(TRUE) 
+    VAR(FALSE)]}

@@ -1,0 +1,8 @@
+PROGRAM {[ 
+    FLOAT(0.0) 
+    FLOAT(0.) 
+    FLOAT(123.) 
+    FLOAT(0012.1) 
+    FLOAT(12.01000) 
+    FLOAT(4.0) 
+    FLOAT(12345678909.12345678909)]}

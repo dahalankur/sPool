@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    LIST(INT(1), INT(2), INT(3)) 
+    LIST(INT(1), BOOL(true), FLOAT(3.45), VAR(abc), STRING("heterogenous lists are ok right now...but semantically? never.")) 
+    LIST()]}
