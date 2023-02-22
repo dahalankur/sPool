@@ -1,0 +1,8 @@
+PROGRAM {[ 
+    CALL(factorial, ARGS(BINOP(BINOP(INT(15), PLUS, INT(17)), MINUS, BINOP(INT(22), DIV, INT(2))))) 
+    CALL(ackermann, ARGS(BINOP(BINOP(INT(2), TIMES, BINOP(INT(2), PLUS, INT(2))), MINUS, INT(1)), BINOP(BINOP(INT(1), MOD, INT(2)), DIV, UNOP(NEG, INT(1))))) 
+    CALL(isFalse, ARGS(BINOP(UNOP(NOT, BOOL(true)), AND, BINOP(BOOL(false), OR, BOOL(true))))) 
+    CALL(applyTwice, ARGS(LAMBDA(INTTY, FORMALS((INTTY, x), (BOOLTY, y)), [ 
+        IF(VAR(y), [ 
+            RETURN(VAR(x))], [ 
+            RETURN(BINOP(VAR(x), PLUS, INT(1)))])]), INT(3)))]}

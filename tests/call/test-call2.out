@@ -1,0 +1,3 @@
+PROGRAM {[ 
+    DEFINE(LISTTY(BOOLTY), result, CALL(List_map, ARGS(VAR(isGood), VAR(my_list)))) 
+    DEFINE(BOOLTY, hasGood, CALL(List_exist, ARGS(VAR(my_list), VAR(myPredicate))))]}
