@@ -21,7 +21,7 @@ type expr =
   | Unop of unaryop * expr       (* Max *)
   | Lambda of typ * bind list * statement list (* Etha *)
   | Call of string * expr list
-  | Noexpr              (* Etha *)
+  | Noexpr
 and statement = 
     Expr of expr
   | Assign of string * expr
