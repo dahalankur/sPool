@@ -11,15 +11,15 @@ type typ = Quack | Int | Bool | Float | Mutex | Thread | String
 type bind = typ * string
 
 type expr = 
-    Literal of int       (* Max *)
-  | BoolLit of bool      (* Max *)
-  | ListLit of expr list (* Max *)
-  | Fliteral of string   (* Max *)
-  | StringLiteral of string (* Max *)
+    Literal of int
+  | BoolLit of bool
+  | ListLit of expr list
+  | Fliteral of string
+  | StringLiteral of string
   | Var of string           (* Max *)
   | Binop of expr * binop * expr (* Max *)
   | Unop of unaryop * expr       (* Max *)
-  | Lambda of typ * bind list * statement list (* Etha *)
+  | Lambda of typ * bind list * statement list
   | Call of string * expr list
   | Noexpr
 and statement = 
@@ -29,7 +29,7 @@ and statement =
   | If of expr * statement list * statement list (* Yuma *)
   | While of expr * statement list (* Yuma *)
   | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
-  | Return of expr (* Etha *)
+  | Return of expr
 
 type program = Program of statement list
 
