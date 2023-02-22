@@ -1,7 +1,7 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
 type unaryop = Not | Neg
-type binop   = And | Or | Add | Sub | Mod| Mult | Div | Equal | Neq | Less 
+type binop   = And | Or | Add | Sub | Mod | Mult | Div | Equal | Neq | Less 
              | Leq | Greater | Geq 
 
 type typ = Quack | Int | Bool | Float | Mutex | Thread | String 
