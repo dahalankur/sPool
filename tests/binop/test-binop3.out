@@ -1,0 +1,8 @@
+PROGRAM {[ 
+    BINOP(INT(4), GREATER, INT(5)) 
+    BINOP(INT(5), GEQ, INT(8)) 
+    BINOP(INT(5), LESS, FLOAT(89.0)) 
+    BINOP(INT(5), LEQ, INT(90)) 
+    BINOP(BOOL(true), EQUALS, BOOL(true)) 
+    BINOP(BOOL(true), NOTEQUALS, BOOL(false)) 
+    BINOP(BOOL(true), EQUALS, BINOP(INT(5), GREATER, INT(6)))]}
