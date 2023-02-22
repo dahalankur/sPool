@@ -1,0 +1,3 @@
+PROGRAM {[ 
+    FUN(NOSTORE, INTTY, empty, FORMALS((INTTY, i)), []) 
+    FUN(STORE, INTTY, noargs, FORMALS(), [])]}

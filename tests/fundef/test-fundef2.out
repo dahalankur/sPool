@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    FUN(STORE, INTTY, fibonacci, FORMALS((INTTY, n)), [ 
+        IF(BINOP(VAR(n), LEQ, INT(1)), [ 
+            RETURN(VAR(n))], [ 
+            RETURN(BINOP(CALL(fibonacci, ARGS(BINOP(VAR(n), MINUS, INT(1)))), PLUS, CALL(fibonacci, ARGS(BINOP(VAR(n), MINUS, INT(2))))))])])]}

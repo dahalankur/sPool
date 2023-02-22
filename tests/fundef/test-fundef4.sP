@@ -7,4 +7,6 @@ def store (int, bool -> bool) specialFun ((int -> bool) f, thread t):
         return f(x) && b;
     return lambda bool (int x, bool c): return g(x) || c;;
 
-specialFun(lambda bool (int x): return x > 0;, thread_create(lambda quack (): sleep(1);))
+specialFun(lambda bool (int x): 
+                    return x > 0;, thread_create(lambda quack (): 
+                                                    sleep(1);))

@@ -1,0 +1,6 @@
+PROGRAM {[ 
+    DEFINE(ARROWTY(INTTY -> QUACKTY), myFun, LAMBDA(QUACKTY, FORMALS((INTTY, count)), [ 
+        BINOP(VAR(count), PLUS, INT(2)) 
+        RETURN(NOEXPR)])) 
+    DEFINE(LISTTY(ARROWTY(INTTY -> QUACKTY)), myFunList, LIST(VAR(myFun), VAR(myFun), VAR(myFun))) 
+    DEFINE(LISTTY(INTTY), intList, LIST(INT(1), INT(2), INT(3), INT(4), INT(5), UNOP(NEG, INT(1)), UNOP(NEG, INT(2)), UNOP(NEG, INT(3))))]}

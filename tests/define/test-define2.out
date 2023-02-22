@@ -1,0 +1,7 @@
+PROGRAM {[ 
+    DEFINE(STRINGTY, myname, STRING("quack quack i'm a duck")) 
+    DEFINE(STRINGTY, another, BINOP(VAR(myname), PLUS, STRING("quack!!@"))) 
+    DEFINE(MUTEXTY, lock, CALL(lock, ARGS())) 
+    DEFINE(THREADTY, t1, CALL(Thread, ARGS(CALL(print, ARGS(STRING("hi")))))) 
+    DEFINE(THREADTY, t2, CALL(Thread, ARGS(CALL(print, ARGS(STRING("hi!!&&")))))) 
+    DEFINE(MUTEXTY, l2, VAR(lock))]}
