@@ -4,4 +4,3 @@
 1
 0       
 0000123 # leading zeroes
-999999999999999999 #biggest number i got to work on command line
