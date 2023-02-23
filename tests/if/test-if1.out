@@ -1,0 +1,3 @@
+PROGRAM {[ 
+    IF(VAR(x), [ 
+        RETURN(BINOP(VAR(x), PLUS, INT(1)))], [])]}

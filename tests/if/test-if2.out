@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    IF(BINOP(BINOP(VAR(x), MOD, INT(2)), EQUALS, INT(0)), [ 
+        RETURN(STRING("even"))], [ 
+        RETURN(STRING("odd"))])]}

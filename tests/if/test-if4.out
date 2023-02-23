@@ -1,0 +1,8 @@
+PROGRAM {[ 
+    IF(BINOP(VAR(x), GREATER, INT(2)), [ 
+        ASSIGN(x, BINOP(VAR(x), MINUS, INT(2))) 
+        IF(BINOP(VAR(x), GREATER, INT(4)), [ 
+            ASSIGN(x, BINOP(VAR(x), MINUS, INT(4))) 
+            IF(BINOP(VAR(x), GREATER, INT(8)), [ 
+                ASSIGN(x, BINOP(VAR(x), MINUS, INT(8)))], [])], [ 
+            ASSIGN(x, BINOP(VAR(x), PLUS, INT(4)))])], [])]}
