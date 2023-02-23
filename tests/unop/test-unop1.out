@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    UNOP(NOT, BOOL(true)) 
+    UNOP(NOT, BOOL(false)) 
+    UNOP(NOT, UNOP(NOT, UNOP(NOT, UNOP(NOT, UNOP(NOT, UNOP(NOT, UNOP(NOT, BOOL(true))))))))]}
