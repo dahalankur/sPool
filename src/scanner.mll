@@ -28,7 +28,7 @@ rule token = parse
   | "def"    { DEF }
   | "lambda" { LAMBDA }
   | "store"  { STORE }
-  | '"'(("\\"_)|[^'\n' '"'])*'"'  as str { STRINGLIT(str) }
+  | '"'(("\\"_)|[^'\n' '"' '\\'])*'"'  as str { STRINGLIT(str) }
   | "if"     { IF  }
   | "else"   { ELSE } 
   | "while"  { WHILE }
