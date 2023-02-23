@@ -2,4 +2,5 @@ PROGRAM {[
     STRING("Hello World!") 
     STRING("a nice friendly string") 
     STRING("multiple \n lines \n done \n properly \n\n\n") 
+    STRING("quotes \"\"\" can be escaped") 
     STRING("dfjaskld;fjas;djfwieorpuewtpo324095743806943807riewofsn,nxzmxn~~```12345678)(*&^%$#@!!@#$%^&*()-={]\}{}|;<>?/.,/'")]}
