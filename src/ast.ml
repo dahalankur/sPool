@@ -26,8 +26,8 @@ and statement =
     Expr of expr
   | Assign of string * expr
   | Define of typ * string * expr
-  | If of expr * statement list * statement list (* Yuma *)
-  | While of expr * statement list (* Yuma *)
+  | If of expr * statement list * statement list 
+  | While of expr * statement list 
   | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
   | Return of expr
 
