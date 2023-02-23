@@ -1,0 +1,6 @@
+PROGRAM {[ 
+    WHILE(BINOP(VAR(x), LESS, INT(10)), [ 
+        WHILE(BINOP(VAR(y), GREATER, INT(10)), [ 
+            ASSIGN(z, BINOP(VAR(x), TIMES, VAR(y))) 
+            ASSIGN(y, BINOP(VAR(y), MINUS, INT(1)))]) 
+        ASSIGN(x, BINOP(VAR(x), PLUS, INT(1)))])]}

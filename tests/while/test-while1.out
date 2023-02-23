@@ -1,0 +1,3 @@
+PROGRAM {[ 
+    WHILE(BOOL(true), [ 
+        ASSIGN(x, BINOP(VAR(x), PLUS, INT(1)))])]}

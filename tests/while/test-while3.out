@@ -1,0 +1,5 @@
+PROGRAM {[ 
+    WHILE(VAR(check), [ 
+        IF(BINOP(VAR(a), LESS, VAR(b)), [ 
+            ASSIGN(a, BINOP(VAR(b), MINUS, VAR(a)))], [ 
+            ASSIGN(check, BOOL(false))])])]}
