@@ -49,8 +49,14 @@ To run all tests, go to the `src` directory and type:
 This should go and run all the tests, with the status of each test being 
 shown on the terminal output.
 
-Additional packages required to run: 
-We expect everything to run with basic OCaml tools installed 
+Additional packages required to run:
+To run our tests, Python3 (tested on versions 3.8.10 and higher, although
+lower versions should still work) must be installed. Other than this,
+we expect everything to run with basic OCaml tools installed 
 (ocamllex, ocamlyacc, ocamlbuild, ocaml). No additional packages are 
 required to compile the sPool compiler or to run the unit tests 
-for the scanner and parser.
+for the scanner and parser other than the standard ocaml packages/tools.
+
+However, if you want to add syntax highlighting to our .sP testing files
+(highly recommended!), you can install the `sPool-syntax` vscode extension
+from the marketplace.
