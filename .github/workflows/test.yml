@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  lexer-parser-test:
+  compiler-test:
 
     runs-on: ubuntu-latest
 
