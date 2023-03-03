@@ -21,3 +21,19 @@ def list<int> List_int_pmap(list<int> l, (int -> int) f):
         j = j + 1;
     
     return result;
+
+def list<int> List_int_filter(list<int> l, (int -> bool) p):
+    int i = 0
+    int j = 0
+    int elem = -1
+    int len = List_len(l)
+    list<int> result = []
+
+    while (i < len):
+        elem = List_at(l, i)
+        if (p(elem)):
+            List_insert(result, j, elem)
+            j = j + 1;
+        i = i + 1;
+    return result;
+
