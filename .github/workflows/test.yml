@@ -21,4 +21,7 @@ jobs:
       run: make -j -C src
       
     - name: Run lexer and scanner tests
-      run: make test -j -C src
+      run: make testparser -j -C src
+    
+    - name: Run semantic checker tests
+      run: make testsemant -j -C src
