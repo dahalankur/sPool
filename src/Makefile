@@ -1,11 +1,17 @@
-.PHONY: all clean test
+EXEC := toplevel.native
 
-all: toplevel.native
+.PHONY: all clean testparser
 
-test: toplevel.native testlexerparser.py
-	@python3 testlexerparser.py all
+all: $(EXEC)
 
-toplevel.native: toplevel.ml parser.mly scanner.mll ast.ml
+testparser: $(EXEC) runtests.py
+	@python3 runtests.py lexerparser all
+
+# TODO: test semant has currently no tests; add tests as we write semantic checker for sPool
+testsemant: $(EXEC) runtests.py
+	@python3 runtests.py semant all
+
+$(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml
 	ocamlbuild $@
 
 clean:

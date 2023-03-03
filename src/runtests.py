@@ -1,8 +1,10 @@
 #  testlexerparser.py
 #  Run the tests for sPool
 #  This script can be run as a standalone script, or from the Makefile
-#  Usage: python3 runtests.py [all|testname], where testname is the name of a 
-#                                             test directory in tests/
+#  Usage: python3 runtests.py dir [all|testname], where testname is the name of a 
+#                                             test directory in tests/ and 
+#                                             dir is the directory containing
+#                                             the subdirectories of tests
 #  Written by Team Nautilus on 02/20/2023
 
 import sys
@@ -12,6 +14,7 @@ from subprocess import Popen, PIPE
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 EXECUTABLE = SCRIPT_DIR + "/toplevel.native"
+ARGS = ""
 FAILED = False
 
 # Takes a string as an argument, the path to a test directory
@@ -30,7 +33,7 @@ def run_test(test):
     for test, expected in zip(success_tests, success_expected):
         name = test.split("/")[-1]
         
-        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
+        output = Popen([EXECUTABLE, ARGS], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
             communicate(input=open(test, "rb").read())
         stdout = output[0].decode("utf-8")
         stderr = output[1].decode("utf-8")
@@ -54,7 +57,7 @@ def run_test(test):
         name = test.split("/")[-1]
         
         # read from stderr instead of stdout
-        output = Popen([EXECUTABLE], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
+        output = Popen([EXECUTABLE, ARGS], stderr=PIPE, stdout=PIPE, stdin=PIPE).\
             communicate(input=open(test, "rb").read())[1].decode("utf-8")
         with open(expected, "r") as f: expected_output = f.read()
         
@@ -73,8 +76,13 @@ def run_test(test):
 # Takes a string as an argument, either "all" or the name of a test directory
 # in tests/ and runs and reports the results of the tests
 def main(to_test):
+    global ARGS
+
+    base_test_dir = to_test[0]
+    to_test = to_test[1]
+    
     tests = []
-    tests_dir = os.path.dirname(os.path.realpath(__file__)) + "/../tests/"
+    tests_dir = os.path.dirname(os.path.realpath(__file__)) + f"/../tests/{base_test_dir}/"
 
     if to_test == "all":
         print("Running all tests\n")
@@ -87,6 +95,13 @@ def main(to_test):
         print("toplevel.native not found. Please run 'make' first in the src directory.")
         sys.exit(1)
 
+    # send correct arguments to toplevel.native
+    if base_test_dir == "lexerparser":
+        ARGS += "-testparser"
+    elif base_test_dir == "semant":
+        ARGS += "-testsemant"
+    # TODO: add more when we have more tests
+
     for test in tests:
         run_test(test)
     
@@ -98,7 +113,7 @@ def main(to_test):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python3 runtests.py [all|testname]")
+    if len(sys.argv) != 3:
+        print("Usage: python3 runtests.py testdir [all|testname]")
         sys.exit(1)
-    main(sys.argv[1])
+    main(sys.argv[1:])
