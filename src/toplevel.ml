@@ -1,4 +1,5 @@
 open Ast
+open Sast
 open Semant
 
 let () =
@@ -12,8 +13,8 @@ let () =
     Arg.parse speclist (fun file -> channel := open_in file) usage_msg;
   let lex_buf = Lexing.from_channel !channel in
   let ast = Parser.program Scanner.token lex_buf in
-  let sast = check ast in
+  let sast = Semant.check ast in
     (* Print ast if -testparser is given; if -testsemant is given, print sast *)
-    if !testparser then print_endline (ast_of_program ast)
-    else if !testsemant then print_endline (sast_of_sprogram sast)
+    if !testparser then      print_endline (Ast.ast_of_program ast)
+    else if !testsemant then print_endline (Sast.sast_of_sprogram sast)
     else print_endline usage_msg
