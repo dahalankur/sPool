@@ -16,6 +16,7 @@ type expr =
   | ListLit of expr list
   | Fliteral of string
   | StringLiteral of string
+  | Thread of statement list
   | Var of string           
   | Binop of expr * binop * expr 
   | Unop of unaryop * expr      
@@ -76,6 +77,7 @@ let rec ast_of_expr n = function
 | Fliteral(f) -> "FLOAT(" ^ f ^ ")"
 | BoolLit(b) -> "BOOL(" ^ string_of_bool b ^ ")"
 | StringLiteral(s) -> "STRING(" ^ s ^ ")"
+| Thread(s) -> "THREAD(" ^ (ast_of_s_list (n + 1) s) ^ ")"
 | Var(s) -> "VAR(" ^ s ^ ")"
 | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr n e2 ^ ")"
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"

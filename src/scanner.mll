@@ -10,6 +10,8 @@ rule token = parse
   | ')'      { RPAREN }
   | '['      { LSQUARE }
   | ']'      { RSQUARE }
+  | '{'      { LBRACE }
+  | '}'      { RBRACE }
   | ':'      { COLON  }
   | ';'      { SEMI   }
   | ','      { COMMA }

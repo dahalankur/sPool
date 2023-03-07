@@ -6,7 +6,7 @@ open Ast
 %token ASSIGN ELSE IF WHILE
 %token INT BOOL FLOAT QUACK MUTEX THREAD STRING LIST ARROW
 %token DEF STORE RETURN LAMBDA
-%token NEWLINE LPAREN RPAREN COLON SEMI COMMA LSQUARE RSQUARE EOF
+%token NEWLINE LPAREN RPAREN LBRACE RBRACE COLON SEMI COMMA LSQUARE RSQUARE EOF
 %token <int> LITERAL
 %token <bool> BLIT
 %token <string> NAME
@@ -102,6 +102,7 @@ expr:
   | STRINGLIT        {      StringLiteral($1) }
   | NAME             {      Var($1)           }
   | LSQUARE args_opt RSQUARE   { ListLit($2)  }
+  | LBRACE d_opt statement_list RBRACE { Thread($3) }
   | expr PLUS   expr { Binop($1, Add,   $3)   }
   | expr MINUS  expr { Binop($1, Sub,   $3)   }
   | expr MOD    expr { Binop($1, Mod,   $3)   }
