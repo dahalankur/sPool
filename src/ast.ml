@@ -50,7 +50,7 @@ and string_of_expr = function
 | Thread(s) -> "{...}"
 | Var(s) -> s
 | Binop(e1, o, e2) -> string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2 
-| Unop(o, e) -> string_of_uop o ^ " " ^ string_of_expr e 
+| Unop(o, e) -> string_of_uop o ^ string_of_expr e 
 | Lambda(t, bs, s) -> "lambda " ^ string_of_type t ^ " (" ^ string_of_bindings bs ^ "): " ^ " ... " ^ ";"
 | Call(name, args) -> name ^ "(" ^ (List.fold_left (fun acc e ->  (if acc = "" then string_of_expr e else acc ^ ", " ^ string_of_expr e)) "" args) ^ ")"
 | ListLit(es) -> "[" ^ (List.fold_left (fun acc e ->  (if acc = "" then string_of_expr e else acc ^ ", " ^ string_of_expr e)) "" es) ^ "]"

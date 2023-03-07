@@ -31,24 +31,24 @@ let check (Program(statements)) =
       | Thread(statements) -> (Thread, SThread(List.map check_statement statements))
       | ListLit(l) -> raise (TODO "slist")
       | Var(s) -> raise (TODO "svar")
-      | Unop(op, e) -> 
+      | Unop(op, e) as expr -> 
           let (t, se) as sexpr = check_expr e in
             (let ty = match op with
                 Neg when (t = Int || t = Float) -> t
               | Not when t = Bool -> Bool
-              | _ -> raise (TypeError ("illegal unary operator " ^ string_of_uop op ^ " on type " ^ string_of_type t))
+              | _ -> raise (TypeError ("illegal unary operator " ^ string_of_uop op ^ " on type " ^ string_of_type t ^ " in expression: " ^ string_of_expr expr))
             in (ty, SUnop(op, sexpr)))
-      | Binop(e1, op, e2) -> 
+      | Binop(e1, op, e2) as expr -> 
         let (t1, se1) as sexpr1 = check_expr e1 in
         let (t2, se2) as sexpr2 = check_expr e2 in
-        if not (t1 = t2) then raise (TypeError ("binary operator " ^ string_of_op op ^ " must get identical types, not " ^ string_of_type t1 ^ " and " ^ string_of_type t2)) else
+        if not (t1 = t2) then raise (TypeError ("binary operator " ^ string_of_op op ^ " must get identical types, not " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr)) else
           (let ty = match op with
             | Add | Sub | Mult | Div when (t1 = Int || t1 = Float) -> t1
             | Mod when t1 = Int -> Int
             | And | Or when t1 = Bool -> Bool
             | Geq | Greater | Leq | Less when (t1 = Int || t1 = Float) -> Bool
             | Neq | Equal when (t1 = Int || t1 = Bool || t1 = String || t1 = Float) -> Bool
-            | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2))
+            | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr))
           in (ty, SBinop(sexpr1, op, sexpr2)))
       | Lambda(t, formals, statements) -> raise (TODO "slambda")
       | Call(name, actuals) -> raise (TODO "scall")
