@@ -18,7 +18,8 @@ let check (Program(statements)) =
       | If(expr, statements1, statements2) -> SIf(check_bool_expr expr, List.map check_statement statements1, List.map check_statement statements2)
       | While(expr, statements) -> SWhile(check_bool_expr expr, List.map check_statement statements)
       | FunDef(store, t, name, formals, statements) -> raise (TODO "sfunc")
-          (* match statements with
+          (* Idea: call Assign with lambda with rhs, deal with store somehow
+            match statements with
               | Return(e) -> let (t', se) = check_expr e
               | _ ->  *)
       | Return(expr) -> raise (SemanticError "Return statement may not exist outside of a function definition")
@@ -42,7 +43,7 @@ let check (Program(statements)) =
         let (t2, se2) as sexpr2 = check_expr e2 in
         if not (t1 = t2) then raise (TypeError ("binary operator " ^ string_of_op op ^ " must get identical types, not " ^ string_of_type t1 ^ " and " ^ string_of_type t2)) else
           (let ty = match op with
-              Add | Sub | Mult | Div when (t1 = Int || t1 = Float) -> t1
+            | Add | Sub | Mult | Div when (t1 = Int || t1 = Float) -> t1
             | Mod when t1 = Int -> Int
             | And | Or when t1 = Bool -> Bool
             | Geq | Greater | Leq | Less when (t1 = Int || t1 = Float) -> Bool
