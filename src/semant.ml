@@ -6,8 +6,6 @@ exception SemanticError of string
 exception NameNotFound of string
 exception TypeError of string
 
-(* TODO: FROM semant.pdf SLIDES *)
-
 module StringMap = Map.Make(String)
 
 type symbol_table = {
@@ -31,21 +29,10 @@ type translation_environment = {
   (* TODO: may need to add other stuff as we do things *)
 }
 
+(* initial env *)
 let env : translation_environment ref = ref {
   scope = { variables = StringMap.empty; parent = None };
 }
-
-(* 
-  NOTE: think about when we are entering a new scope. I can think 
-  of IF, WHILE, FUNCTION, and THREAD right now.
-  A new child symbol table should be created for each of these, and the parent
-  should be the current scope. Change LRM to reflect this (if the information 
-    is not already there).
-
-  MAYBE MAKE A GLOBAL ENV AND USE IT AS REFERENCE!
-*)
-
-(* END OF CODE FROM semant.pdf SLIDES *)
 
 let check (Program(statements)) =
     let push_scope = 
