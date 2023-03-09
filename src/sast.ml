@@ -13,7 +13,7 @@ and sx =
   | SVar of string           
   | SBinop of sexpr * binop * sexpr 
   | SUnop of unaryop * sexpr      
-  | SLambda of typ * bind list * sstatement list
+  | SLambda of bool * typ * bind list * sstatement list
   | SCall of string * sexpr list
   | SNoexpr
 and sstatement = 
@@ -22,7 +22,6 @@ and sstatement =
   | SDefine of typ * string * sexpr
   | SIf of sexpr * sstatement list * sstatement list 
   | SWhile of sexpr * sstatement list 
-  | SFunDef of bool * typ * string * bind list * sstatement list (* first bool indicates whether store is present *)
   | SReturn of sexpr
 
 type sprogram = SProgram of sstatement list
@@ -41,7 +40,7 @@ let rec sast_of_sexpr n (t, e) =
   | SVar(s) -> "SVAR(" ^ ast_of_ty t ^ ", " ^ s ^ ")"
   | SBinop(e1, o, e2) -> "SBINOP(" ^ sast_of_sexpr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ sast_of_sexpr n e2 ^ ")"
   | SUnop(o, e) -> "SUNOP(" ^ ast_of_uop o ^ ", " ^ sast_of_sexpr n e ^ ")"
-  | SLambda(t1, bs, s) -> "SLAMBDA(" ^ ast_of_ty t1 ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ sast_of_s_list (n + 1) s ^ ")"
+  | SLambda(store, t1, bs, s) -> "SLAMBDA(STORE(" ^ string_of_bool store ^ "), " ^ ast_of_ty t1 ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ sast_of_s_list (n + 1) s ^ ")"
   | SCall(name, args) -> "SCALL(" ^ name ^ "," ^ " ARGS(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ sast_of_sexpr n ex) "" args ^ "))"
   | SListLit(es) -> "SLIST(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ sast_of_sexpr n ex) "" es ^ ")"
   | SNoexpr -> "SNOEXPR")
@@ -57,10 +56,6 @@ and
         | SReturn(e) -> "SRETURN(" ^ sast_of_sexpr n e ^ ")"
         | SIf(e, s1, s2) -> "SIF(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1) s1 ^ ", " ^ sast_of_s_list (n + 1) s2 ^ ")"
         | SWhile(e, s) -> "SWHILE(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1 ) s ^ ")"
-        | SFunDef(s, t, fname, fs, b) ->  
-            "SFUN(" ^ (if s then "STORE, " else "NOSTORE, ") 
-            ^ ast_of_ty t ^ ", " ^ fname ^ ", " ^
-            "FORMALS(" ^ ast_of_bindings fs ^ "), " ^ sast_of_s_list (n + 1) b ^ ")"
     in 
     "\n" ^ n_tabs n ^ statement_str
 and n_tabs n = 

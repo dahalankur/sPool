@@ -20,7 +20,7 @@ type expr =
   | Var of string           
   | Binop of expr * binop * expr 
   | Unop of unaryop * expr      
-  | Lambda of typ * bind list * statement list
+  | Lambda of bool * typ * bind list * statement list
   | Call of string * expr list
   | Noexpr
 and statement = 
@@ -51,7 +51,7 @@ and string_of_expr = function
 | Var(s) -> s
 | Binop(e1, o, e2) -> string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2 
 | Unop(o, e) -> string_of_uop o ^ string_of_expr e 
-| Lambda(t, bs, s) -> "lambda " ^ string_of_type t ^ " (" ^ string_of_bindings bs ^ "): " ^ " ... " ^ ";"
+| Lambda(_, t, bs, s) -> "lambda " ^ string_of_type t ^ " (" ^ string_of_bindings bs ^ "): " ^ " ... " ^ ";"
 | Call(name, args) -> name ^ "(" ^ (List.fold_left (fun acc e ->  (if acc = "" then string_of_expr e else acc ^ ", " ^ string_of_expr e)) "" args) ^ ")"
 | ListLit(es) -> "[" ^ (List.fold_left (fun acc e ->  (if acc = "" then string_of_expr e else acc ^ ", " ^ string_of_expr e)) "" es) ^ "]"
 | Noexpr -> ""
@@ -146,7 +146,7 @@ let rec ast_of_expr n = function
 | Var(s) -> "VAR(" ^ s ^ ")"
 | Binop(e1, o, e2) -> "BINOP(" ^ ast_of_expr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ ast_of_expr n e2 ^ ")"
 | Unop(o, e) -> "UNOP(" ^ ast_of_uop o ^ ", " ^ ast_of_expr n e ^ ")"
-| Lambda(t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
+| Lambda(_, t, bs, s) -> "LAMBDA(" ^ ast_of_ty t ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ ast_of_s_list (n + 1) s ^ ")"
 | Call(name, args) -> "CALL(" ^ name ^ "," ^ " ARGS(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ ast_of_expr n ex) "" args ^ "))"
 | ListLit(es) -> "LIST(" ^ List.fold_left (fun acc ex -> (if acc = "" then acc else acc ^ ", ") ^ ast_of_expr n ex) "" es ^ ")"
 | Noexpr -> "NOEXPR"

@@ -119,5 +119,5 @@ expr:
   | NOT expr         { Unop(Not, $2)          }
   | NAME LPAREN args_opt RPAREN { Call($1, $3)}
   | MINUS expr %prec NOT { Unop(Neg, $2)      }
-  | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda($2, $4, $8) }
+  | LAMBDA typ LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI  { Lambda(false, $2, $4, $8) }
   | LPAREN expr RPAREN { $2 }
