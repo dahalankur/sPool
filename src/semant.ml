@@ -24,26 +24,28 @@ let rec find_variable (scope : symbol_table) name =
       Some(parent) -> find_variable parent name
       | _ -> raise (NameNotFound ("unidentified flying name " ^ name))
 
+      (* TODO: at the end, match indentation levels and style of every function *)
 type translation_environment = {
   scope : symbol_table; (* symbol table for vars *)
   (* TODO: may need to add other stuff as we do things *)
 }
-
 (* initial env *)
 let env : translation_environment ref = ref {
   scope = { variables = StringMap.empty; parent = None };
 }
-
+(* TODO: deal with built in functions somewhere here *)
 let check (Program(statements)) =
     let rec eqType = function 
         | (Arrow(ts, t), Arrow(ts2, t2)) -> 
             let sametype = eqType(t, t2) in
+            if (List.length ts) != (List.length ts2) then false else
             let zipped_ts = List.combine ts ts2 in
             let sametypes = List.for_all eqType zipped_ts in
               sametype && sametypes
         | (List(t1), List(t2)) -> t1 = Quack || t2 = Quack || eqType(t1, t2)
         | (List(_), _) | (_, List(_)) | (Arrow(_, _), _) | (_, Arrow(_, _)) -> false
-        | (t1, t2) -> t1 = t2 in
+        | (t1, t2) -> t1 = t2  (* primitive type equality *)
+    in
     let rec eqTypes = function
           | [] -> true
           | [t] -> true
@@ -67,8 +69,7 @@ let check (Program(statements)) =
     in env := {scope = parent_scope}
     in
     let str_of_scope scope = 
-      let str_of_binding (n, t) = (string_of_type t)^ " : " ^ n in
-      let str_of_bindings bindings = String.concat ", " (List.map str_of_binding (StringMap.bindings bindings)) in
+      let str_of_bindings bindings = String.concat ", " (List.map (fun (k, v) -> (string_of_type v) ^ " : " ^ k) (StringMap.bindings bindings)) in
         "{" ^ str_of_bindings scope.variables ^ "}" in
     let defined_in_current_scope s = StringMap.mem s !env.scope.variables in
     let rec check_bool_expr e = 
@@ -115,13 +116,13 @@ let check (Program(statements)) =
           let sts = List.map check_statement statements in
           let _ = pop_scope () in
           (Thread, SThread(sts))
-        | ListLit(l)          -> (match l with 
+        | ListLit(l) as expr  -> (match l with 
             | [] -> (List(Quack), SListLit([]))
             | xs -> 
               let sxs = List.map check_expr xs in 
               let ts = List.map fst sxs in
                 if eqTypes ts then (List(List.hd ts), SListLit(sxs)) 
-                else raise (TypeError "lists must only contain expressions of the same type"))
+                else raise (TypeError ("lists must only contain expressions of the same type in expression: " ^ string_of_expr expr)))
         | Var(s)              -> (find_variable !env.scope s, SVar(s))
         | Unop(op, e) as expr -> 
             let (t, se) as sexpr = check_expr e in
@@ -143,12 +144,14 @@ let check (Program(statements)) =
                   | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr))
                 in (ty, SBinop(sexpr1, op, sexpr2)))
         | Lambda(store, t, formals, statements) -> raise (TODO "slambda")
-                    (* Idea: call Assign with lambda with rhs, deal with store somehow
+        (* Handle scope for formals here too. Add them to the pushed scope immediately upon entering lambda body, and pop the scope after leaving the lambda body *)
+                    (*
               match statements with
                 | Return(e) -> let (t', se) = check_expr e
                 | _ ->  *)
         | Call(name, actuals) -> raise (TODO "scall")
         | Noexpr -> (Quack, SNoexpr)
       in
+        let _ = str_of_scope !env.scope in (* silence compiler warning for functions for debugging *)
         if statements = [] then SProgram([])
         else SProgram(List.map check_statement statements)
