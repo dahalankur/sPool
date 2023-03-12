@@ -2,19 +2,30 @@ open Ast
 open Sast
 open Semant
 
+type action = Ast | Sast | LLVM_IR | Compile
+
 let () =
-  let usage_msg = "Usage: ./toplevel.native [-testparser|-testsemant] [file]" in
+  let action = ref Compile in
+  let set_action a () = action := a in
+  let usage_msg = "Usage: ./toplevel.native [-a|-l|-s|-c] [file.sP]" in
+  let speclist = [
+    ("-a", Arg.Unit (set_action Ast), "Print the AST");
+    ("-s", Arg.Unit (set_action Sast), "Print the SAST");
+    ("-l", Arg.Unit (set_action LLVM_IR), "Print the generated LLVM IR");
+    ("-c", Arg.Unit (set_action Compile),
+      "Check and print the generated LLVM IR (default)")] in
   let channel = ref stdin in
-  let testparser = ref false in (* default cmd args get set to false *)
-  let testsemant = ref false in
-  let speclist =
-    [("-testparser", Arg.Set testparser, "Test scanner and parser");
-     ("-testsemant", Arg.Set testsemant, "Test semantic checker")] in
     Arg.parse speclist (fun file -> channel := open_in file) usage_msg;
-  let lex_buf = Lexing.from_channel !channel in
-  let ast = Parser.program Scanner.token lex_buf in
-  let sast = Semant.check ast in
-    (* Print ast if -testparser is given; if -testsemant is given, print sast *)
-    if !testparser then      print_endline (Ast.ast_of_program ast)
-    else if !testsemant then print_endline (Sast.sast_of_sprogram sast)
-    else print_endline usage_msg
+  
+  let lexbuf = Lexing.from_channel !channel in
+  let ast = Parser.program Scanner.token lexbuf in
+  match !action with
+    Ast -> print_endline (Ast.ast_of_program ast)
+  | _   -> let sast = Semant.check ast in
+      match !action with
+        Sast ->    print_endline (Sast.sast_of_sprogram sast)
+      | LLVM_IR -> print_endline (Llvm.string_of_llmodule (Codegen.translate sast))
+      | Compile -> let m = Codegen.translate sast in
+          Llvm_analysis.assert_valid_module m; (* TODO: do we actually need llvm analysis, or do we need to do something else here? Read the spec. *)
+          print_endline (Llvm.string_of_llmodule m)
+      | _ -> raise (Failure "Internal error: no action selected")

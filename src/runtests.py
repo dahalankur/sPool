@@ -97,9 +97,9 @@ def main(to_test):
 
     # send correct arguments to toplevel.native
     if base_test_dir == "lexerparser":
-        ARGS += "-testparser"
+        ARGS += "-a"
     elif base_test_dir == "semant":
-        ARGS += "-testsemant"
+        ARGS += "-s"
     # TODO: add more when we have more tests
 
     for test in tests:

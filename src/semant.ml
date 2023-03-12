@@ -33,7 +33,7 @@ type translation_environment = {
 let env : translation_environment ref = ref {
   scope = { variables = StringMap.empty; parent = None };
 }
-(* TODO: deal with built in functions somewhere here *)
+(* TODO: deal with built in functions somewhere here...also need to add additional checks in ASSIGN to ensure someone is not naming their function as a built-in function *)
 let check (Program(statements)) =
     let rec eqType = function 
         | (Arrow(ts, t), Arrow(ts2, t2)) -> 

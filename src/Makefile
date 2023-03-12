@@ -11,8 +11,8 @@ testparser: $(EXEC) runtests.py
 testsemant: $(EXEC) runtests.py
 	@python3 runtests.py semant all
 
-$(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml
-	ocamlbuild $@
+$(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml codegen.ml
+	ocamlbuild $@ -package llvm -package llvm.analysis
 
 clean:
 	ocamlbuild -clean
