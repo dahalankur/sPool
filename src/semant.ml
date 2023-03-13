@@ -11,6 +11,10 @@ module StringMap = Map.Make(String)
 type symbol_table = {
   (* Variables bound in current scope *)
   variables : typ StringMap.t;
+  
+  (* Are the variables shared across other threads? This stores the name -> bool mapping *)
+  shared : bool StringMap.t;
+
   (* Enclosing scope *)
   parent : symbol_table option;
 }
@@ -29,13 +33,11 @@ type translation_environment = {
   scope : symbol_table; (* symbol table for vars *)
   (* TODO: may need to add other stuff as we do things *)
 }
+
 (* initial env *)
 let env : translation_environment ref = ref {
-  scope = { variables = StringMap.empty; parent = None };
+  scope = { variables = StringMap.empty; shared = StringMap.empty; parent = None };
 }
-
-(* A mapping of variable names to booleans, indicating whether that variable is shared across threads *)
-let shared_var = ref StringMap.empty
 
 (* TODO: deal with built in functions somewhere here...also need to add additional checks in ASSIGN to ensure someone is not naming their function as a built-in function *)
 let check (Program(statements)) =
@@ -59,11 +61,11 @@ let check (Program(statements)) =
         | List(t) -> quack_type t
         | _ -> false in
     let push_scope () = 
-      let new_scope = {variables = StringMap.empty; parent = Some(!env.scope)}
+      let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env.scope)}
     in env := {scope = new_scope}
   in
-    let add_to_scope (t, n) =
-      let new_scope = {variables = StringMap.add n t !env.scope.variables; parent = !env.scope.parent}
+    let add_to_scope (s, t, n) =
+      let new_scope = {variables = StringMap.add n t !env.scope.variables; shared = StringMap.add n s !env.scope.shared; parent = !env.scope.parent}
       in env := {scope = new_scope}
     in
     let pop_scope () = 
@@ -91,10 +93,9 @@ let check (Program(statements)) =
               let _ = (match t1 with
                 | Arrow(_, _) | Thread when s -> raise (TypeError (string_of_type t1 ^ " may not be defined to be a shared variable"))
                 | _ -> ()) in
-              let _ = add_to_scope (t, name) in 
               let is_shared = (match t with List(_) | Mutex -> true
                                         | _ -> s) in
-              let _ = shared_var := StringMap.add name is_shared !shared_var in
+              let _ = add_to_scope (is_shared, t, name) in 
               SDefine(is_shared, t, name, sexpr))
         | Assign(name, expr)      -> 
           let (t1, sx) as sexpr = check_expr expr in 
@@ -116,7 +117,7 @@ let check (Program(statements)) =
           let ss2 = List.map check_statement statements2 in
           let _ = pop_scope () in
             SIf(conditional, ss1, ss2)
-        | FunDef(store, t, name, formals, statements) -> 
+        | FunDef(store, t, name, formals, statements) ->  (* TODO: I think we will get an error; the function name will not have been defined before. Maybe we need to delegate it to DEFINE and not ASSIGN *)
             check_statement(Assign(name, Lambda(store, t, formals, statements)))
     and check_expr = function
         | Literal(l)          -> (Int, SLiteral l)
@@ -135,7 +136,7 @@ let check (Program(statements)) =
               let ts = List.map fst sxs in
                 if eqTypes ts then (List(List.hd ts), SListLit(sxs)) 
                 else raise (TypeError ("lists must only contain expressions of the same type in expression: " ^ string_of_expr expr)))
-        | Var(s)              -> (find_variable !env.scope s, SVar(StringMap.find s !shared_var, s))
+        | Var(s)              -> (find_variable !env.scope s, SVar(StringMap.find s !env.scope.shared, s))
         | Unop(op, e) as expr -> 
             let (t, se) as sexpr = check_expr e in
               (let ty = match op with
