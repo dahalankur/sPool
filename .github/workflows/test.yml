@@ -13,12 +13,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - uses: awalsh128/cache-apt-pkgs-action@latest # cache the packages on subsequent builds
+      with:
+        packages: ocaml llvm opam ocamlbuild m4 cmake
 
     - name: Install dependencies
-      run: sudo apt install ocaml && sudo apt install ocamlbuild
+      run: |
+           opam init --yes
+           opam install llvm --yes
 
     - name: Compile sPool toplevel
-      run: make -j -C src
+      run: |
+           eval $(opam config env)
+           make -j -C src
       
     - name: Run lexer and scanner tests
       run: make testparser -j -C src
