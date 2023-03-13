@@ -17,6 +17,7 @@ rule token = parse
   | ','      { COMMA }
   | "->"     { ARROW }
   | "return" { RETURN }
+  | "shared" { SHARED }
   | "int"    { INT }
   | "list"   { LIST }
   | "bool"   { BOOL }

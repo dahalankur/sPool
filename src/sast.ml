@@ -2,7 +2,7 @@ open Ast
 
 exception TODO of string (* remove when done *)
 
-type sexpr = typ * sx 
+type sexpr = typ * sx  (* bool indicates if this typ is shared across all threads *)
 and sx =
     SLiteral of int
   | SBoolLit of bool
@@ -19,7 +19,7 @@ and sx =
 and sstatement = 
     SExpr of sexpr
   | SAssign of string * sexpr
-  | SDefine of typ * string * sexpr
+  | SDefine of bool * typ * string * sexpr
   | SIf of sexpr * sstatement list * sstatement list 
   | SWhile of sexpr * sstatement list 
   | SReturn of sexpr
@@ -52,7 +52,7 @@ and
       match statement with
           SExpr(e) -> sast_of_sexpr n e
         | SAssign(v, e) -> "SASSIGN(" ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
-        | SDefine(t, v, e) -> "SDEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
+        | SDefine(s, t, v, e) -> "SDEFINE(" ^ string_of_bool s ^ ", " ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
         | SReturn(e) -> "SRETURN(" ^ sast_of_sexpr n e ^ ")"
         | SIf(e, s1, s2) -> "SIF(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1) s1 ^ ", " ^ sast_of_s_list (n + 1) s2 ^ ")"
         | SWhile(e, s) -> "SWHILE(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1 ) s ^ ")"

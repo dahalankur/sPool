@@ -5,7 +5,7 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE NOT EQ NEQ LT LEQ GT GEQ AND OR MOD 
 %token ASSIGN ELSE IF WHILE
 %token INT BOOL FLOAT QUACK MUTEX THREAD STRING LIST ARROW
-%token DEF STORE RETURN LAMBDA
+%token DEF STORE RETURN LAMBDA SHARED
 %token NEWLINE LPAREN RPAREN LBRACE RBRACE COLON SEMI COMMA LSQUARE RSQUARE EOF
 %token <int> LITERAL
 %token <bool> BLIT
@@ -63,6 +63,10 @@ typ_list:
     typ                       { [$1]     }
   | typ_list COMMA typ        { $3 :: $1 }
 
+// shared_opt:
+//     /* nothing */ { false }
+//   | SHARED        { true }
+
 typ:
      INT                              { Int                    }
    | BOOL                             { Bool                   }
@@ -85,7 +89,8 @@ statement_list:
 
 statement:
       expr                 { Expr($1)           }
-    | typ NAME ASSIGN expr { Define($1, $2, $4) }
+    | typ NAME ASSIGN expr { Define(false, $1, $2, $4) }
+    | SHARED typ NAME ASSIGN expr { Define(true, $2, $3, $5) } // TODO: add to LRM *)
     | NAME ASSIGN expr     { Assign($1, $3)     } 
     | RETURN expr_opt      { Return($2)         } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 

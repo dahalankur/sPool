@@ -78,12 +78,17 @@ let check (Program(statements)) =
         if t != Bool then raise (TypeError err) else (t, se)
     and check_statement = function
         | Expr(expr)              -> SExpr (check_expr expr)
-        | Define(t, name, expr)   ->
+        | Define(s, t, name, expr)   ->
           (match check_expr expr with
-            | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
-            | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
-            | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
-            | (t1, sx) as sexpr -> let _ = add_to_scope (t, name) in SDefine(t, name, sexpr))
+          | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
+          | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
+          | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
+          | (t1, sx) as sexpr -> 
+            let _ = match t1 with
+              | Arrow(_, _) | Thread when s -> raise (TypeError (string_of_type t1 ^ " may not be defined to be a shared variable"))
+              | _ -> () in
+            let _ = add_to_scope (t, name) in SDefine((match t with List(_) | Mutex -> true
+                                                                  | _ -> s), t, name, sexpr))
         | Assign(name, expr)      -> 
           let (t1, sx) as sexpr = check_expr expr in 
             (match find_variable !env.scope name with

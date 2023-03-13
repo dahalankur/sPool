@@ -26,7 +26,7 @@ type expr =
 and statement = 
     Expr of expr
   | Assign of string * expr
-  | Define of typ * string * expr
+  | Define of bool * typ * string * expr (* first bool indicates whether the variable is shared across threads *)
   | If of expr * statement list * statement list 
   | While of expr * statement list 
   | FunDef of bool * typ * string * bind list * statement list (* first bool indicates whether store is present *)
@@ -158,7 +158,7 @@ and
       match statement with
         Expr(e) -> ast_of_expr n e
         | Assign(v, e) -> "ASSIGN(" ^ v ^ ", " ^ ast_of_expr n e ^ ")"
-        | Define(t, v, e) -> "DEFINE(" ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr n e ^ ")"
+        | Define(s, t, v, e) -> "DEFINE(" ^ string_of_bool s ^ ", " ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ ast_of_expr n e ^ ")"
         | Return(e) -> "RETURN(" ^ ast_of_expr n e ^ ")"
         | If(e, s1, s2) -> "IF(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1) s1 ^ ", " ^ ast_of_s_list (n + 1) s2 ^ ")"
         | While(e, s) -> "WHILE(" ^ ast_of_expr n e ^ ", " ^ ast_of_s_list (n + 1 ) s ^ ")"
