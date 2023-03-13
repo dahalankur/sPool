@@ -28,6 +28,14 @@ let rec find_variable (scope : symbol_table) name =
       Some(parent) -> find_variable parent name
       | _ -> raise (NameNotFound ("unidentified flying name " ^ name))
 
+let rec find_shared (scope : symbol_table) name = 
+  try
+    StringMap.find name scope.shared
+  with Not_found ->
+    match scope.parent with
+      Some(parent) -> find_shared parent name
+      | _ -> raise (NameNotFound ("unidentified flying name " ^ name))
+
       (* TODO: at the end, match indentation levels and style of every function *)
 type translation_environment = {
   scope : symbol_table; (* symbol table for vars *)
@@ -136,7 +144,7 @@ let check (Program(statements)) =
               let ts = List.map fst sxs in
                 if eqTypes ts then (List(List.hd ts), SListLit(sxs)) 
                 else raise (TypeError ("lists must only contain expressions of the same type in expression: " ^ string_of_expr expr)))
-        | Var(s)              -> (find_variable !env.scope s, SVar(StringMap.find s !env.scope.shared, s))
+        | Var(s)              -> (find_variable !env.scope s, SVar(find_shared !env.scope s, s))
         | Unop(op, e) as expr -> 
             let (t, se) as sexpr = check_expr e in
               (let ty = match op with
