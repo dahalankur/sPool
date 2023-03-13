@@ -29,6 +29,8 @@ type sprogram = SProgram of sstatement list
 
 (* Pretty-printing functions *)
 
+let shared_str s = if s then "shared " else ""
+
 let rec sast_of_sexpr n (t, e) = 
   "(" ^ ast_of_ty t ^ " : " ^
   (match e with
@@ -37,7 +39,7 @@ let rec sast_of_sexpr n (t, e) =
   | SBoolLit(b) -> "SBOOL(" ^ string_of_bool b ^ ")"
   | SStringLiteral(s) -> "SSTRING(" ^ s ^ ")"
   | SThread(s) -> "STHREAD(" ^ (sast_of_s_list (n + 1) s) ^ ")"
-  | SVar(shared, s) -> "SVAR(" ^ string_of_bool shared ^ " " ^ ast_of_ty t ^ ", " ^ s ^ ")"
+  | SVar(shared, s) -> "SVAR(" ^ shared_str shared ^ ast_of_ty t ^ ", " ^ s ^ ")"
   | SBinop(e1, o, e2) -> "SBINOP(" ^ sast_of_sexpr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ sast_of_sexpr n e2 ^ ")"
   | SUnop(o, e) -> "SUNOP(" ^ ast_of_uop o ^ ", " ^ sast_of_sexpr n e ^ ")"
   | SLambda(store, t1, bs, s) -> "SLAMBDA(STORE(" ^ string_of_bool store ^ "), " ^ ast_of_ty t1 ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ sast_of_s_list (n + 1) s ^ ")"
@@ -52,7 +54,7 @@ and
       match statement with
           SExpr(e) -> sast_of_sexpr n e
         | SAssign(v, e) -> "SASSIGN(" ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
-        | SDefine(s, t, v, e) -> "SDEFINE(" ^ string_of_bool s ^ ", " ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
+        | SDefine(s, t, v, e) -> "SDEFINE(" ^ shared_str s ^ ast_of_ty t ^ ", " ^ v ^ ", " ^ sast_of_sexpr n e ^ ")"
         | SReturn(e) -> "SRETURN(" ^ sast_of_sexpr n e ^ ")"
         | SIf(e, s1, s2) -> "SIF(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1) s1 ^ ", " ^ sast_of_s_list (n + 1) s2 ^ ")"
         | SWhile(e, s) -> "SWHILE(" ^ sast_of_sexpr n e ^ ", " ^ sast_of_s_list (n + 1 ) s ^ ")"

@@ -63,10 +63,6 @@ typ_list:
     typ                       { [$1]     }
   | typ_list COMMA typ        { $3 :: $1 }
 
-// shared_opt:
-//     /* nothing */ { false }
-//   | SHARED        { true }
-
 typ:
      INT                              { Int                    }
    | BOOL                             { Bool                   }
@@ -88,15 +84,15 @@ statement_list:
   | statement                           { [$1]     }
 
 statement:
-      expr                 { Expr($1)           }
-    | typ NAME ASSIGN expr { Define(false, $1, $2, $4) }
-    | SHARED typ NAME ASSIGN expr { Define(true, $2, $3, $5) } // TODO: add to LRM *)
-    | NAME ASSIGN expr     { Assign($1, $3)     } 
-    | RETURN expr_opt      { Return($2)         } 
+      expr                        { Expr($1)           }
+    | typ NAME ASSIGN expr        { Define(false, $1, $2, $4) }
+    | SHARED typ NAME ASSIGN expr { Define(true, $2, $3, $5)  }
+    | NAME ASSIGN expr            { Assign($1, $3)     } 
+    | RETURN expr_opt             { Return($2)         } 
     | DEF store_opt typ NAME LPAREN formals_opt RPAREN COLON d_opt statement_list SEMI 
-                           { FunDef($2, $3, $4, $6, $10) }    
-    | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, $7)            }
-    | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI    { If($3, $7, [])           }
+                                  { FunDef($2, $3, $4, $6, $10) }    
+    | WHILE LPAREN expr RPAREN COLON d_opt statement_list SEMI { While($3, $7)   }
+    | IF LPAREN expr RPAREN COLON d_opt statement_list SEMI    { If($3, $7, [])  }
     | IF LPAREN expr RPAREN COLON d_opt statement_list ELSE d_opt statement_list SEMI    
                                                                { If($3, $7, $10) }
 
