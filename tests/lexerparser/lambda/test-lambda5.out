@@ -1,3 +1,3 @@
 PROGRAM {[ 
-    DEFINE(LISTTY(INTTY), myresult, CALL(list_map, ARGS(LIST(INT(1), INT(3), INT(5), INT(6), INT(9)), LAMBDA(INTTY, FORMALS((INTTY, input)), [ 
+    DEFINE(false, LISTTY(INTTY), myresult, CALL(list_map, ARGS(LIST(INT(1), INT(3), INT(5), INT(6), INT(9)), LAMBDA(INTTY, FORMALS((INTTY, input)), [ 
         RETURN(BINOP(VAR(input), PLUS, INT(1)))]))))]}

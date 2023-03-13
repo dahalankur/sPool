@@ -10,7 +10,7 @@ and sx =
   | SFliteral of string
   | SStringLiteral of string
   | SThread of sstatement list
-  | SVar of string           
+  | SVar of bool * string           
   | SBinop of sexpr * binop * sexpr 
   | SUnop of unaryop * sexpr      
   | SLambda of bool * typ * bind list * sstatement list
@@ -37,7 +37,7 @@ let rec sast_of_sexpr n (t, e) =
   | SBoolLit(b) -> "SBOOL(" ^ string_of_bool b ^ ")"
   | SStringLiteral(s) -> "SSTRING(" ^ s ^ ")"
   | SThread(s) -> "STHREAD(" ^ (sast_of_s_list (n + 1) s) ^ ")"
-  | SVar(s) -> "SVAR(" ^ ast_of_ty t ^ ", " ^ s ^ ")"
+  | SVar(shared, s) -> "SVAR(" ^ string_of_bool shared ^ " " ^ ast_of_ty t ^ ", " ^ s ^ ")"
   | SBinop(e1, o, e2) -> "SBINOP(" ^ sast_of_sexpr n e1 ^ ", " ^ ast_of_op o ^ ", " ^ sast_of_sexpr n e2 ^ ")"
   | SUnop(o, e) -> "SUNOP(" ^ ast_of_uop o ^ ", " ^ sast_of_sexpr n e ^ ")"
   | SLambda(store, t1, bs, s) -> "SLAMBDA(STORE(" ^ string_of_bool store ^ "), " ^ ast_of_ty t1 ^ ", " ^ "FORMALS(" ^ ast_of_bindings bs ^ "), " ^ sast_of_s_list (n + 1) s ^ ")"

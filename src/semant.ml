@@ -33,6 +33,10 @@ type translation_environment = {
 let env : translation_environment ref = ref {
   scope = { variables = StringMap.empty; parent = None };
 }
+
+(* A mapping of variable names to booleans, indicating whether that variable is shared across threads *)
+let shared_var = ref StringMap.empty
+
 (* TODO: deal with built in functions somewhere here...also need to add additional checks in ASSIGN to ensure someone is not naming their function as a built-in function *)
 let check (Program(statements)) =
     let rec eqType = function 
@@ -80,15 +84,18 @@ let check (Program(statements)) =
         | Expr(expr)              -> SExpr (check_expr expr)
         | Define(s, t, name, expr)   ->
           (match check_expr expr with
-          | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
-          | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
-          | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
-          | (t1, sx) as sexpr -> 
-            let _ = match t1 with
-              | Arrow(_, _) | Thread when s -> raise (TypeError (string_of_type t1 ^ " may not be defined to be a shared variable"))
-              | _ -> () in
-            let _ = add_to_scope (t, name) in SDefine((match t with List(_) | Mutex -> true
-                                                                  | _ -> s), t, name, sexpr))
+            | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
+            | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
+            | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
+            | (t1, sx) as sexpr -> 
+              let _ = (match t1 with
+                | Arrow(_, _) | Thread when s -> raise (TypeError (string_of_type t1 ^ " may not be defined to be a shared variable"))
+                | _ -> ()) in
+              let _ = add_to_scope (t, name) in 
+              let is_shared = (match t with List(_) | Mutex -> true
+                                        | _ -> s) in
+              let _ = shared_var := StringMap.add name is_shared !shared_var in
+              SDefine(is_shared, t, name, sexpr))
         | Assign(name, expr)      -> 
           let (t1, sx) as sexpr = check_expr expr in 
             (match find_variable !env.scope name with
@@ -128,7 +135,7 @@ let check (Program(statements)) =
               let ts = List.map fst sxs in
                 if eqTypes ts then (List(List.hd ts), SListLit(sxs)) 
                 else raise (TypeError ("lists must only contain expressions of the same type in expression: " ^ string_of_expr expr)))
-        | Var(s)              -> (find_variable !env.scope s, SVar(s))
+        | Var(s)              -> (find_variable !env.scope s, SVar(StringMap.find s !shared_var, s))
         | Unop(op, e) as expr -> 
             let (t, se) as sexpr = check_expr e in
               (let ty = match op with
