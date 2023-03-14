@@ -1,3 +1,12 @@
+(* toplevel.ml
+   The top level driver program for the sPool compiler.
+   Allows the user to select which stage of the compiler to run, and
+   which file to compile.
+   Usage: ./toplevel.native [-a|-l|-s|-c] [file.sP]
+
+   Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
+*)
+
 open Ast
 open Sast
 open Semant
@@ -15,17 +24,15 @@ let () =
     ("-c", Arg.Unit (set_action Compile),
       "Check and print the generated LLVM IR (default)")] in
   let channel = ref stdin in
-    Arg.parse speclist (fun file -> channel := open_in file) usage_msg;
-  
+    Arg.parse speclist (fun file -> channel := open_in file) usage_msg; 
   let lexbuf = Lexing.from_channel !channel in
   let ast = Parser.program Scanner.token lexbuf in
-  match !action with
-    Ast -> print_endline (Ast.ast_of_program ast)
-  | _   -> let sast = Semant.check ast in
-      match !action with
-        Sast ->    print_endline (Sast.sast_of_sprogram sast)
-      | LLVM_IR -> print_endline (Llvm.string_of_llmodule (Codegen.translate sast))
-      | Compile -> let m = Codegen.translate sast in
-          Llvm_analysis.assert_valid_module m; (* TODO: do we actually need llvm analysis, or do we need to do something else here? Read the spec. *)
-          print_endline (Llvm.string_of_llmodule m)
-      | _ -> raise (Failure "Internal error: no action selected")
+    match !action with
+      Ast -> print_endline (Ast.ast_of_program ast)
+    | _   -> let sast = Semant.check ast in
+        match !action with
+          Sast    -> print_endline (Sast.sast_of_sprogram sast)
+        | LLVM_IR -> print_endline (Llvm.string_of_llmodule (Codegen.translate sast))
+        | Compile -> let m = Codegen.translate sast in Llvm_analysis.assert_valid_module m; (* TODO: do we actually need llvm analysis, or do we need to do something else here? Read the spec. *)
+                      print_endline (Llvm.string_of_llmodule m)
+        | _ -> raise (Failure "Internal error: no action selected")

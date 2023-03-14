@@ -5,3 +5,39 @@
                     Max Mitchell   (maxwell.mitchell@tufts.edu)
                     Ankur Dahal    (ankur.dahal@tufts.edu)
                     Etha Hua       (tianze.hua@tufts.edu)
+
+The sPool integration testing suite:
+
+- Programs present in the testing suite:
+       - <prog> : <desc>
+       - <prog2> : <desc2> TODO: fill this up, adding info about what's being tested and what output is being produced
+
+--------------------------------------------------------------------------------
+
+Scripts provided:
+
+- Compile the compiler:
+       A Makefile is provided which compiles the compiler into an executable. 
+       When present in the `src` directory, type `make` to generate the executable 
+       file named `toplevel.native`. To successfully compile the sPool compiler, it 
+       is expected that the tools required to compile the MicroC compiler are 
+       present on the host machine, i.e., basic OCaml toolchain (ocaml, ocamlbuild, 
+       ocamllex, ocamlyacc, ocamlfind, opam) as well as LLVM (LLVM on the host 
+       machine and the Ocaml LLVM API installed using opam) must be present. 
+       Other than these tools and Python3 (tested on versions 3.8.10 and higher, 
+       although lower versions should still work), no additional packages/tools 
+       are needed to compile the sPool compiler or to run any of the 
+       included tests.
+
+- Run tests:
+
+
+- Run the compiler on a given source file:
+
+--------------------------------------------------------------------------------
+
+How testing works:
+
+- Successful compilation and output validation:
+
+- Unsuccessful compilation:

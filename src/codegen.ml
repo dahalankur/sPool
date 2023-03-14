@@ -1,10 +1,35 @@
+(* codegen.ml
+   Translates a semantically-checked AST to LLVM IR.
+
+   Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
+*)
+
 module L = Llvm
 module A = Ast
 open Sast 
 
 module StringMap = Map.Make(String)
 
-let translate (SProgram(statements)) = raise (TODO "translate")
+let translate (SProgram(statements)) = 
+  (* let context    = L.global_context () in
+  let i32_t      = L.i32_type    context (* TODO: if we use these types, can we update our LRM to say integers are 32-bits and no longer platform dependent? *)
+  and i8_t       = L.i8_type     context
+  and i1_t       = L.i1_type     context
+  and float_t    = L.double_type context
+  and void_t     = L.void_type   context 
+  and the_module = L.create_module context "sPool" in  *)
+  
+  raise (TODO "translate")
+
+    (* Convert MicroC types to LLVM types *)
+  (* let ltype_of_typ = function
+    A.Int    -> i32_t
+  | A.Bool   -> i1_t
+  | A.Float  -> float_t
+  | A.Void  -> void_t
+  in *)
+
+  (* the_module; *)
 
 (* 
 let translate (globals, functions) =
@@ -139,7 +164,7 @@ let translate (globals, functions) =
 	  (match op with
 	    A.Neg when t = A.Float -> L.build_fneg 
 	  | A.Neg                  -> L.build_neg
-          | A.Not                  -> L.build_not) e' "tmp" builder
+          | A.Not                  -> L.build_not) e' "tmp" builder 
       | SCall ("print", [e]) | SCall ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
@@ -148,7 +173,7 @@ let translate (globals, functions) =
       | SCall ("printf", [e]) -> 
 	  L.build_call printf_func [| float_format_str ; (expr builder e) |]
 	    "printf" builder
-      | SCall (f, args) ->
+      | SCall (f, args) -> (* TODO: for sPool, we will check for store before making a call to arbritary user-defined functions! *)
          let (fdef, fdecl) = StringMap.find f function_decls in
 	 let llargs = List.rev (List.map (expr builder) (List.rev args)) in
 	 let result = (match fdecl.styp with 
