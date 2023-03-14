@@ -64,8 +64,7 @@ let add_to_scope (s, t, n) =
   let new_scope = {variables = StringMap.add n t !env.scope.variables; shared = StringMap.add n s !env.scope.shared; parent = !env.scope.parent}
   in env := {scope = new_scope}
 
-(* TODO: deal with built in functions somewhere here...also need to add additional checks in DEFINE to ensure someone is not naming their function as a built-in function? *)
-(* Do we add builtins to the initial base scope? *)
+(* list of built-in function names *)
 let builtin_functions = 
   let builtins = [
                               (* List built-ins *)
@@ -94,9 +93,9 @@ let builtin_functions =
                   ("Thread_join", Arrow([Thread], Quack));
                   
                   ] in 
-  List.iter (fun (n, t) -> add_to_scope(false, t, n)) builtins
+  let _ = List.iter (fun (n, t) -> add_to_scope(false, t, n)) builtins in 
+  List.map (fun (n, t) -> n) builtins
 
-(* TODO: may have to update this as builtins get added *)
 let builtin_to_alpha = function 
   ("List", _::[x]) -> List(x)
 | (_, [])  -> Alpha
@@ -153,7 +152,8 @@ let check (Program(statements)) =
       Expr(expr)               -> SExpr (check_expr expr)
     | Define(s, t, name, expr) ->
         (match check_expr expr with
-            _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
+            _       when List.mem name builtin_functions -> raise (SemanticError ("name " ^ name ^ " is a built-in function and may not be redefined"))
+          | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
           | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
           | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
           | (t1, sx) as sexpr -> 
@@ -225,23 +225,23 @@ let check (Program(statements)) =
               | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr))
             in (ty, SBinop(sexpr1, op, sexpr2)))
     | Lambda(store, t, formals, statements) -> 
-            let count_return s = List.fold_left (fun acc s -> match s with Return(_) -> acc + 1 | _ -> acc) 0 s in
-            let num_returns = count_return statements in 
-              if not (num_returns = 1) then raise (SemanticError "Function body must have exactly one top-level return statement") else 
-            let is_shared t = match t with Mutex | List(_) -> true | _ -> false in
-            let _ = push_scope () in
-            let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared*)
-            (* check whether return statement is the last statement in function body *)
-            let rec check_body xs acc = match xs with       
-               [Return(e)] -> let (t', se) as sx = check_expr e in
-                                    if (eqType (t', t)) then SLambda(store, t, formals, (List.rev acc) @ [SReturn(sx)]) 
-                                                        else raise (TypeError "Expression in return statement must match type declared in function") 
-             | [x] -> raise (SemanticError "No statement(s) can follow a return statement")
-             | x :: xs_rest -> check_body xs_rest (check_statement x :: acc)
-             | _ -> raise (Failure "InternalError: shouldn't happen in body")
-            in let slam = check_body statements [] in 
-            let _ = pop_scope () in (construct_arrow_type formals t, slam)
-    | Call(name, actuals) ->
+        let count_return s = List.fold_left (fun acc s -> match s with Return(_) -> acc + 1 | _ -> acc) 0 s in
+        let num_returns = count_return statements in 
+          if not (num_returns = 1) then raise (SemanticError "Function body must have exactly one top-level return statement") else 
+        let is_shared t = match t with Mutex | List(_) -> true | _ -> false in
+        let _ = push_scope () in
+        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared*)
+        (* check whether return statement is the last statement in function body *)
+        let rec check_body xs acc = match xs with       
+            [Return(e)] -> let (t', se) as sx = check_expr e in
+                                if (eqType (t', t)) then SLambda(store, t, formals, (List.rev acc) @ [SReturn(sx)]) 
+                                                    else raise (TypeError "Expression in return statement must match type declared in function") 
+          | [x] -> raise (SemanticError "No statement(s) can follow a return statement")
+          | x :: xs_rest -> check_body xs_rest (check_statement x :: acc)
+          | _ -> raise (Failure "InternalError: shouldn't happen in body")
+        in let slam = check_body statements [] in 
+        let _ = pop_scope () in (construct_arrow_type formals t, slam)
+    | Call(name, actuals) -> (* TODO: make error messages more meaningful by including expressions/args in them *)
         let funty = (match find_variable !env.scope name with
             Arrow(_, _) as t -> t
           | _ -> raise (TypeError ("name " ^ name ^ " is not a function and is therefore not callable"))) in 
@@ -249,7 +249,6 @@ let check (Program(statements)) =
         if List.length actuals != List.length fty then raise (SemanticError ("Function " ^ name ^ " called with the wrong number of arguments")) else
         let checked_actuals = List.map check_expr actuals in
         let arg_typs = List.map fst checked_actuals in
-
         (* If alphas exist in the functions retty, instantiate it so we get a monomorphic type for the result of the call *)
         let sretty = 
           let pred = alpha_type retty in
@@ -257,9 +256,6 @@ let check (Program(statements)) =
         if eqType (funty, Arrow(arg_typs, retty)) then (sretty, SCall(name, checked_actuals))
         else raise (TypeError ("Function " ^ name ^ " called with the wrong argument types"))
     | Noexpr -> (Quack, SNoexpr)
-
-    (* l = List_at(list<a> l, int) -> a...alpha_type
-    List_at([1, 2, 3], 2) -> int *)
   in
     let _ = str_of_scope !env.scope in (* silence compiler warning for debugging functions *)
     if statements = [] then SProgram([])
