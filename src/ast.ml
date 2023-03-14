@@ -12,6 +12,7 @@ type binop   = And | Or | Add | Sub | Mod | Mult | Div | Equal | Neq | Less
 type typ = Quack | Int | Bool | Float | Mutex | Thread | String 
          | Arrow of typ list * typ
          | List of typ
+         | Alpha (* Used internally for polymorphism. Quack is to null as Alpha is to void pointer *)
 
 type bind = typ * string
 
@@ -68,6 +69,7 @@ and string_of_type = function
 | String       -> "string"
 | Arrow(ts, t) -> (List.fold_left (fun acc t -> (if acc = "" then acc else acc ^ ", ") ^ string_of_type t) "" ts) ^ " -> " ^ string_of_type t ^ ")"
 | List(t)      -> "list<" ^ string_of_type t ^ ">"
+| Alpha        -> "alpha"
 and string_of_op = function
   Add          -> "+"
 | Sub          -> "-"
@@ -113,6 +115,7 @@ and ast_of_ty = function
 | String       -> "STRINGTY"
 | Arrow(ts, t) -> "ARROWTY(" ^ (List.fold_left (fun acc t -> (if acc = "" then acc else acc ^ " * ") ^ ast_of_ty t) "" ts) ^ " -> " ^ ast_of_ty t ^ ")"
 | List(t)      -> "LISTTY(" ^ ast_of_ty t ^ ")"
+| Alpha        -> "ALPHATY"
 and ast_of_bindings = function
   []           -> ""
 | [(t, x)]     ->  "(" ^ ast_of_ty t ^ ", " ^ x ^ ")"

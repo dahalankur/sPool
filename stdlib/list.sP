@@ -9,10 +9,11 @@ def list<int> List_int_pmap(list<int> l, (int -> int) f):
 
     # helper function to carry function computation
     (int -> quack) pmap_helper = lambda quack (int index):
-        List_replace(result, index, f(List_at(l, index)));
+        List_replace(result, index, f(List_at(l, index)))
+        return;
     
     while (i < len):
-        List_insert(threads, i, Thread("pmap_helper", int_to_string(i)))
+        List_insert(threads, i, {pmap_helper(i)})
         i = i + 1;
 
     # wait for the threads to be done
