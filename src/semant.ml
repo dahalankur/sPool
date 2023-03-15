@@ -9,7 +9,7 @@
 open Ast
 open Sast
 
-(* TODO: how to deal with stdlib imports...we need to not forget to auto-import them/bundle them in the compiler later *)
+(* TODO: how to deal with stdlib imports...we need to not forget to auto-import them/bundle them in the compiler later. or maybe we just add a simple import statement lol *)
 
 (* exceptions *)
 exception SemanticError of string
@@ -64,6 +64,19 @@ let add_to_scope (s, t, n) =
   let new_scope = {variables = StringMap.add n t !env.scope.variables; shared = StringMap.add n s !env.scope.shared; parent = !env.scope.parent}
   in env := {scope = new_scope}
 
+let rec eqType = function 
+    (Arrow(ts, t), Arrow(ts2, t2)) -> 
+      let sametype = eqType(t, t2) in
+      if (List.length ts) != (List.length ts2) then false else
+      let zipped_ts = List.combine ts ts2 in
+      let sametypes = List.for_all eqType zipped_ts in
+        sametype && sametypes
+  | (List(t1), List(t2)) -> t1 = Alpha || t2 = Alpha || eqType(t1, t2)
+  | (Alpha, _) | (_, Alpha) -> true
+  | (List(_), _) | (_, List(_)) | (Arrow(_, _), _) | (_, Arrow(_, _)) -> false
+  | (t1, t2) -> t1 = t2  (* primitive type equality *)
+
+
 (* list of built-in function names *)
 let builtin_functions = 
   let builtins = [
@@ -94,27 +107,19 @@ let builtin_functions =
                   
                   ] in 
   let _ = List.iter (fun (n, t) -> add_to_scope(false, t, n)) builtins in 
-  List.map (fun (n, t) -> n) builtins
+  List.map fst builtins
 
-let builtin_to_alpha = function 
-  ("List", _::[x]) -> List(x)
-| (_, [])  -> Alpha
-| ("List_at", x::_) -> (match x with (List(t)) -> t | _ -> raise (Failure "InternalError: shouldn't happen in builtin_to_alpha"))
-| _ -> raise (Failure "InternalError: shouldn't happen in builtin_to_alpha")
-
+(* returns the specific sPool type that should replace ALPHA for each list builtin function *)
+let alpha_to_builtin (fname, argtypes) = match (fname, argtypes) with 
+    ("List", [Int; t])                                      -> t
+  | ("List_at", [List(t); Int])                             -> t
+  | ("List_len", [List(t)])                                 -> t
+  | ("List_replace", [List(t); Int; t2]) when eqType(t, t2) -> t
+  | ("List_insert", [List(t); Int; t2])  when eqType(t, t2) -> t
+  | ("List_remove", [List(t); Int])                         -> t
+  | _                                                       -> raise (Failure ("InternalError: Mistyped arguments to list builtin function " ^ fname))
 
 let check (Program(statements)) =
-  let rec eqType = function 
-      (Arrow(ts, t), Arrow(ts2, t2)) -> 
-        let sametype = eqType(t, t2) in
-        if (List.length ts) != (List.length ts2) then false else
-        let zipped_ts = List.combine ts ts2 in
-        let sametypes = List.for_all eqType zipped_ts in
-          sametype && sametypes
-    | (List(t1), List(t2)) -> t1 = Alpha || t2 = Alpha || eqType(t1, t2)
-    | (Alpha, _) | (_, Alpha) -> true
-    | (List(_), _) | (_, List(_)) | (Arrow(_, _), _) | (_, Arrow(_, _)) -> false
-    | (t1, t2) -> t1 = t2  (* primitive type equality *) in
   let rec eqTypes = function
       []             -> true
     | [t]            -> true
@@ -124,9 +129,10 @@ let check (Program(statements)) =
     | List(t) -> quack_type t
     | _       -> false in
   let rec alpha_type = function 
-      Alpha   -> true 
-    | List(t) -> alpha_type t
-    | _       -> false in
+      Alpha        -> true 
+    | Arrow(ts, t) -> (List.exists alpha_type ts) || (alpha_type t)
+    | List(t)      -> alpha_type t
+    | _            -> false in
   let push_scope () = 
     let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env.scope)}
     in env := {scope = new_scope}
@@ -245,14 +251,28 @@ let check (Program(statements)) =
         let funty = (match find_variable !env.scope name with
             Arrow(_, _) as t -> t
           | _ -> raise (TypeError ("name " ^ name ^ " is not a function and is therefore not callable"))) in 
+        let rec num_args = function 
+            [Quack] -> 0
+          | []      -> 0
+          | _ :: xs -> 1 + num_args xs in
         let (fty, retty) = match funty with Arrow(f, r) -> (f, r) | _ -> raise (Failure "InternalError: shouldn't happen in call") in
-        if List.length actuals != List.length fty then raise (SemanticError ("Function " ^ name ^ " called with the wrong number of arguments")) else
+        if List.length actuals != num_args fty then raise (SemanticError ("Function " ^ name ^ " called with the wrong number of arguments")) else
         let checked_actuals = List.map check_expr actuals in
-        let arg_typs = List.map fst checked_actuals in
-        (* If alphas exist in the functions retty, instantiate it so we get a monomorphic type for the result of the call *)
-        let sretty = 
-          let pred = alpha_type retty in
-            if pred then builtin_to_alpha (name, arg_typs) else retty in
+        let arg_typs = 
+          let ca = List.map fst checked_actuals in
+          if ca = [] then [Quack] else ca in (* If the arg list is empty, set it to have 'quack' type *)
+        
+        (* if alphas exist in the function's return type, instantiate it so we get a monomorphic type for the result of the call *)
+          let sretty = 
+            if alpha_type retty then 
+              (* if true, this can only be List_at or List builtin *)
+              let instantiated_retty = alpha_to_builtin (name, arg_typs) in
+                if name = "List" then List(instantiated_retty) (* since List returns List<a> *)
+                else instantiated_retty
+            else retty in
+          let _ = 
+            (* Check well-typedness of polymorphic functions. This is done by alpha_to_builtin function automatically during pattern matching. This check ensures that calls like List_insert([1, 2], 0, false) are rejected because false != int *)
+            if alpha_type funty then alpha_to_builtin (name, arg_typs) else Quack in
         if eqType (funty, Arrow(arg_typs, retty)) then (sretty, SCall(name, checked_actuals))
         else raise (TypeError ("Function " ^ name ^ " called with the wrong argument types"))
     | Noexpr -> (Quack, SNoexpr)
