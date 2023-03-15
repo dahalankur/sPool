@@ -236,7 +236,7 @@ let check (Program(statements)) =
           if not (num_returns = 1) then raise (SemanticError "Function body must have exactly one top-level return statement") else 
         let is_shared t = match t with Mutex | List(_) -> true | _ -> false in
         let _ = push_scope () in
-        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared*)
+        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared....IDEA: should all shared variables be declared on the heap? this solves all our problems related to thread/function scoping/closure! *)
         (* check whether return statement is the last statement in function body *)
         let rec check_body xs acc = match xs with       
             [Return(e)] -> let (t', se) as sx = check_expr e in
