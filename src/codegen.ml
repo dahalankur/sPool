@@ -90,6 +90,48 @@ let translate (SProgram(statements)) =
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
     | SCall ("println", [e]) -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
+    | SBinop (e1, op, e2) ->
+      let (t, _) = e1
+      and e1' = expr builder e1
+      and e2' = expr builder e2 in
+      if t = A.Float (* TODO: double check this matches our semantics for binops and unop from the LRM *)
+      then (match op with 
+        A.Add     -> L.build_fadd
+      | A.Sub     -> L.build_fsub
+      | A.Mult    -> L.build_fmul
+      | A.Div     -> L.build_fdiv 
+      | A.Mod     -> raise (Failure "Internal Error: semant should have rejected mod on float")
+      | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
+      | A.Neq     -> L.build_fcmp L.Fcmp.One
+      | A.Less    -> L.build_fcmp L.Fcmp.Olt
+      | A.Leq     -> L.build_fcmp L.Fcmp.Ole
+      | A.Greater -> L.build_fcmp L.Fcmp.Ogt
+      | A.Geq     -> L.build_fcmp L.Fcmp.Oge
+      | A.And | A.Or -> raise (Failure "internal Error: semant should have rejected and/or on float")
+           ) e1' e2' "tmp" builder 
+      else (match op with
+      | A.Add     -> L.build_add
+      | A.Sub     -> L.build_sub
+      | A.Mult    -> L.build_mul
+      | A.Div     -> L.build_sdiv
+      | A.Mod     -> L.build_srem (* TODO: srem or urem? *)
+      | A.And     -> L.build_and
+      | A.Or      -> L.build_or
+      | A.Equal   -> L.build_icmp L.Icmp.Eq
+      | A.Neq     -> L.build_icmp L.Icmp.Ne
+      | A.Less    -> L.build_icmp L.Icmp.Slt
+      | A.Leq     -> L.build_icmp L.Icmp.Sle
+      | A.Greater -> L.build_icmp L.Icmp.Sgt
+      | A.Geq     -> L.build_icmp L.Icmp.Sge
+           ) e1' e2' "tmp" builder
+    | SUnop(op, e) ->
+      let (t, _) = e in
+      let e' = expr builder e in
+      (match op with
+          A.Neg when t = A.Float -> L.build_fneg 
+        | A.Neg                  -> L.build_neg
+        | A.Not                  -> L.build_not 
+      ) e' "tmp" builder
     | _ -> raise (TODO "unimplemented other expressions in expr")
   and build_function builder (store, retty, formals, body) = raise (TODO "unimplemented build_function")
   and build_main_function builder statements =
