@@ -50,6 +50,14 @@ let translate (SProgram(statements)) =
 
 
 
+  (* TODO: handling shared vars note:
+    for shared variables passed to functions as arguments, we need to first evaluate the variable and then pass it to the function
+    to maintain our convention of pass-by-value for all nonlists and nonmutexes.
+    
+    For lists and mutexes, however, this is not the case. They are shared by default, so their addresses are passed in when calling 
+    functions! This means that we need to pass the address of the variable to the function, not the value of the variable.
+  *)
+
   let rec statement builder = function
       SExpr e -> let _ = expr builder e in builder
     | SIf (predicate, then_stmt, else_stmt) ->
@@ -100,13 +108,13 @@ let translate (SProgram(statements)) =
       | A.Sub     -> L.build_fsub
       | A.Mult    -> L.build_fmul
       | A.Div     -> L.build_fdiv 
-      | A.Mod     -> raise (Failure "Internal Error: semant should have rejected mod on float")
       | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
       | A.Neq     -> L.build_fcmp L.Fcmp.One
       | A.Less    -> L.build_fcmp L.Fcmp.Olt
       | A.Leq     -> L.build_fcmp L.Fcmp.Ole
       | A.Greater -> L.build_fcmp L.Fcmp.Ogt
       | A.Geq     -> L.build_fcmp L.Fcmp.Oge
+      | A.Mod     -> raise (Failure "Internal Error: semant should have rejected mod on float")
       | A.And | A.Or -> raise (Failure "internal Error: semant should have rejected and/or on float")
            ) e1' e2' "tmp" builder 
       else (match op with
