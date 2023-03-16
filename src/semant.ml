@@ -51,8 +51,6 @@ let rec find_shared (scope : symbol_table) name =
 
 type translation_environment = {
   scope : symbol_table; (* symbol table for vars *)
-
-  (* TODO: maybe add a list of builtin functions here...? It may help while checking for attempts to define functions that have the same names as the builtins *)
 }
 
 (* initial env *)
@@ -194,11 +192,27 @@ let check (Program(statements)) =
     | FunDef(store, t, name, formals, statements) ->
         let arrow_ty = construct_arrow_type formals t in
         check_statement(Define(false, arrow_ty, name, Lambda(store, t, formals, statements)))
+  (* sanitize_string: remove first and last quotes, and remove any backslashes before double quote or newlines *)
+  and sanitize_string s = 
+    let len = String.length s in
+    let rec sanitize i = 
+      if i = len then "" else
+        let c = String.get s i in
+        let c' = 
+          if c = '\\' then 
+            if i + 1 < len then 
+              let c'' = String.get s (i + 1) in
+              if c'' = '"' || c'' = '\n'
+                then "" else String.make 1 c
+            else String.make 1 c
+          else String.make 1 c
+        in c' ^ sanitize (i + 1)
+    in let result = sanitize 1 in String.sub result 0 (String.length result - 1)
   and check_expr = function
       Literal(l)          -> (Int, SLiteral l)
     | BoolLit(b)          -> (Bool, SBoolLit(b))
     | Fliteral(f)         -> (Float, SFliteral(f))
-    | StringLiteral(s)    -> (String, SStringLiteral(s))
+    | StringLiteral(s)    -> (String, SStringLiteral(sanitize_string(s)))
     | Thread(statements)  -> 
         let _ = push_scope () in
         let sts = List.map check_statement statements in
@@ -252,9 +266,8 @@ let check (Program(statements)) =
             Arrow(_, _) as t -> t
           | _ -> raise (TypeError ("name " ^ name ^ " is not a function and is therefore not callable"))) in 
         let rec num_args = function 
-            [Quack] -> 0
-          | []      -> 0
-          | _ :: xs -> 1 + num_args xs in
+            [Quack] | [] -> 0
+          | _ :: xs      -> 1 + num_args xs in
         let (fty, retty) = match funty with Arrow(f, r) -> (f, r) | _ -> raise (Failure "InternalError: shouldn't happen in call") in
         if List.length actuals != num_args fty then raise (SemanticError ("Function " ^ name ^ " called with the wrong number of arguments")) else
         let checked_actuals = List.map check_expr actuals in
