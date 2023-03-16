@@ -41,6 +41,9 @@ let translate (SProgram(statements)) =
   (* Declare all builtins *)
   let printf_t    = L.var_arg_function_type i32_t [| string_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
+
+  let int_to_string_t    = L.function_type string_t [| i32_t |] in
+  let int_to_string_func = L.declare_function "int_to_string" int_to_string_t the_module in
   
 
   (* 
@@ -98,6 +101,7 @@ let translate (SProgram(statements)) =
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
     | SCall ("println", [e]) -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
+    | SCall ("int_to_string", [e]) -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder (* TODO: Where to store the returned string? need a strptr? TEST THIS BY STORING THE RESULTING STR IN A VAR AND SEE LLVM GENERATED *)
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1' = expr builder e1
@@ -153,9 +157,10 @@ let translate (SProgram(statements)) =
       Some _ -> ()
     | None -> ignore (instr builder))
   and terminate_block builder retty = add_terminal builder (match retty with
-    A.Quack -> L.build_ret_void
-  | A.Float -> L.build_ret (L.const_float float_t 0.0)
-  | A.Int   -> L.build_ret (L.const_int i32_t 0)
+    A.Quack  -> L.build_ret_void
+  | A.Float  -> L.build_ret (L.const_float float_t 0.0)
+  | A.Int    -> L.build_ret (L.const_int i32_t 0)
+  | A.String -> L.build_ret (L.const_int i8_t 0) (* TODO: test this later *)
   | _ -> raise (TODO "unimplemented return types in terminate_block"))
 in
 (* We only have one top-level function, main. 

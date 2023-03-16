@@ -29,6 +29,13 @@ Scripts provided:
        are needed to compile the sPool compiler or to run any of the 
        included tests.
 
+- Link builtins.c TODO: make this better, put in a script
+       ./toplevel.native <file> > hello.ll # takes sPool code on command line, or from file
+       llc hello.ll                        # produces hello.s
+       gcc builtins.c -c                   # produces builtins.o
+       gcc hello.s builtins.o -o hello     # link the builtins with the assembly
+       ./hello
+
 - Run tests:
 
 
