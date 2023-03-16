@@ -34,17 +34,50 @@ let translate (SProgram(statements)) =
   let builder                = L.builder_at_end context (L.entry_block main_function) in
   let str_format_str         = L.build_global_stringptr "%s"   "strfmt"        builder in
   let str_format_str_endline = L.build_global_stringptr "%s\n" "strfmtendline" builder in
-
+  let the_function           = main_function in
+  (* TODO: reassign the_function based on which function you are currently in. Preferably this should be handled while building a new function body *)
 
   (* Declare all builtins *)
   let printf_t    = L.var_arg_function_type i32_t [| string_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
+  
+
+  (* 
+  ("int_to_string", Arrow([Int], String)); ("float_to_string", Arrow([Float], String));
+                  ("bool_to_string", Arrow([Bool], String)); ("int_to_float", Arrow([Int], Float));
+                  ("float_to_int", Arrow([Float], Int)); *)
+
+
 
   let rec statement builder = function
       SExpr e -> let _ = expr builder e in builder
+    | SIf (predicate, then_stmt, else_stmt) ->
+        let bool_val = expr builder predicate in
+        let merge_bb = L.append_block context "merge" the_function in
+          let branch_instr = L.build_br merge_bb in
+        let then_bb = L.append_block context "then" the_function in
+            (* Position builder in "then" block and build the statement *)
+          let then_builder = List.fold_left statement (L.builder_at_end context then_bb) then_stmt in
+            (* Add a branch to the "then" block (to the merge block) 
+              if a terminator doesn't already exist for the "then" block *)
+        let () = add_terminal then_builder branch_instr in
+
+            (* Identical to stuff we did for "then" *)
+        let else_bb = L.append_block context "else" the_function in
+          let else_builder = List.fold_left statement (L.builder_at_end context else_bb) else_stmt in
+        let () = add_terminal else_builder branch_instr in
+
+            (* Generate initial branch instruction perform the selection of "then"
+            or "else". Note we're using the builder we had access to at the start
+            of this alternative. *)
+        let _ = L.build_cond_br bool_val then_bb else_bb builder in
+            (* Move to the merge block for further instruction building *)
+          L.builder_at_end context merge_bb
     | _ -> raise (TODO "unimplemented statements in statement")
   and expr builder (t, e) = match e with 
       SLiteral i -> L.const_int i32_t i
+    | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
+    | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
     | SCall ("println", [e]) -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
@@ -52,10 +85,10 @@ let translate (SProgram(statements)) =
   and build_function builder (store, retty, formals, body) = raise (TODO "unimplemented build_function")
   and build_main_function builder statements =
     (* Generate instructions for the actual sPool source *)
-    List.map (statement builder) statements; 
+    let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold! *)
       
     (* End the main basic block with a terminal *)
-    terminate_block builder A.Int
+    terminate_block final_builder A.Int
   and add_terminal builder instr =
     (match L.block_terminator (L.insertion_block builder) with
       Some _ -> ()
