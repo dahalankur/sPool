@@ -1,3 +1,6 @@
 .DS_Store
 _build
 *.native
+a.out
+*.ll
+*.s
