@@ -36,6 +36,7 @@ let translate (SProgram(statements)) =
   let str_format_str_endline = L.build_global_stringptr "%s\n" "strfmtendline" builder in
   let the_function           = main_function in
   (* TODO: reassign the_function based on which function you are currently in. Preferably this should be handled while building a new function body *)
+  (* TODO: make the_function be a reference and udate it when we see a new function defn *)
 
   (* Declare all builtins *)
   let printf_t    = L.var_arg_function_type i32_t [| string_t |] in
@@ -53,30 +54,38 @@ let translate (SProgram(statements)) =
       SExpr e -> let _ = expr builder e in builder
     | SIf (predicate, then_stmt, else_stmt) ->
         let bool_val = expr builder predicate in
+
         let merge_bb = L.append_block context "merge" the_function in
           let branch_instr = L.build_br merge_bb in
+
         let then_bb = L.append_block context "then" the_function in
-            (* Position builder in "then" block and build the statement *)
           let then_builder = List.fold_left statement (L.builder_at_end context then_bb) then_stmt in
-            (* Add a branch to the "then" block (to the merge block) 
-              if a terminator doesn't already exist for the "then" block *)
         let () = add_terminal then_builder branch_instr in
 
-            (* Identical to stuff we did for "then" *)
         let else_bb = L.append_block context "else" the_function in
           let else_builder = List.fold_left statement (L.builder_at_end context else_bb) else_stmt in
         let () = add_terminal else_builder branch_instr in
 
-            (* Generate initial branch instruction perform the selection of "then"
-            or "else". Note we're using the builder we had access to at the start
-            of this alternative. *)
         let _ = L.build_cond_br bool_val then_bb else_bb builder in
-            (* Move to the merge block for further instruction building *)
           L.builder_at_end context merge_bb
+    | SWhile (predicate, body) ->
+        let pred_bb = L.append_block context "while" the_function in
+        let _ = L.build_br pred_bb builder in
+
+        let body_bb = L.append_block context "while_body" the_function in
+            let while_builder = List.fold_left statement (L.builder_at_end context body_bb) body in
+        let () = add_terminal while_builder (L.build_br pred_bb) in
+
+        let pred_builder = L.builder_at_end context pred_bb in
+        let bool_val = expr pred_builder predicate in
+
+        let merge_bb = L.append_block context "merge" the_function in
+        let _ = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb  
     | _ -> raise (TODO "unimplemented statements in statement")
   and expr builder (t, e) = match e with 
       SLiteral i -> L.const_int i32_t i
     | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
+    | SFliteral l -> L.const_float_of_string float_t l
     | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
