@@ -15,7 +15,7 @@ let translate (SProgram(statements)) =
   let i32_t      = L.i32_type    context (* TODO: if we use these types, can we update our LRM to say integers are 32-bits and no longer platform dependent? *)
   and i8_t       = L.i8_type     context
   and i1_t       = L.i1_type     context
-  and float_t    = L.double_type context
+  and float_t    = L.double_type context (* TODO: also update this info in LRM about the internal representation of floating point numbers *)
   and quack_t    = L.void_type   context 
   and string_t   = L.pointer_type (L.i8_type context) in
   let the_module = L.create_module context "sPool" in
@@ -37,19 +37,26 @@ let translate (SProgram(statements)) =
   let the_function           = main_function in
   (* TODO: reassign the_function based on which function you are currently in. Preferably this should be handled while building a new function body *)
   (* TODO: make the_function be a reference and udate it when we see a new function defn *)
+  (* Again, this may not be enough -- we need to handle cases where functions are inside functions, so how do we remember which function was this function's parent? We may need to recursively pass this somehow... *)
 
   (* Declare all builtins *)
-  let printf_t    = L.var_arg_function_type i32_t [| string_t |] in
-  let printf_func = L.declare_function "printf" printf_t the_module in
+  let printf_t             = L.var_arg_function_type i32_t [| string_t |] in
+  let printf_func          = L.declare_function "printf" printf_t the_module in
 
-  let int_to_string_t    = L.function_type string_t [| i32_t |] in
-  let int_to_string_func = L.declare_function "int_to_string" int_to_string_t the_module in
+  let int_to_string_t      = L.function_type string_t [| i32_t |] in
+  let int_to_string_func   = L.declare_function "int_to_string" int_to_string_t the_module in
   
+  let float_to_string_t    = L.function_type string_t [| float_t |] in
+  let float_to_string_func = L.declare_function "float_to_string" float_to_string_t the_module in
 
-  (* 
-  ("int_to_string", Arrow([Int], String)); ("float_to_string", Arrow([Float], String));
-                  ("bool_to_string", Arrow([Bool], String)); ("int_to_float", Arrow([Int], Float));
-                  ("float_to_int", Arrow([Float], Int)); *)
+  let bool_to_string_t     = L.function_type string_t [| i1_t |] in
+  let bool_to_string_func  = L.declare_function "bool_to_string" bool_to_string_t the_module in
+
+  let int_to_float_t       = L.function_type float_t [| i32_t |] in
+  let int_to_float_func    = L.declare_function "int_to_float" int_to_float_t the_module in (* TODO: in lrm, talk about how types are being cast and what precision/accuracy can be lost *)
+
+  let float_to_int_t       = L.function_type i32_t [| float_t |] in
+  let float_to_int_func    = L.declare_function "float_to_int" float_to_int_t the_module in (* TODO: in lrm, talk about how types are being cast and what precision/accuracy can be lost *)
 
 
 
@@ -62,36 +69,35 @@ let translate (SProgram(statements)) =
   *)
 
   let rec statement builder = function
-      SExpr e -> let _ = expr builder e in builder
+      SExpr e -> let _     = expr builder e in builder
     | SIf (predicate, then_stmt, else_stmt) ->
-        let bool_val = expr builder predicate in
+        let bool_val       = expr builder predicate in
 
-        let merge_bb = L.append_block context "merge" the_function in
+        let merge_bb       = L.append_block context "merge" the_function in
           let branch_instr = L.build_br merge_bb in
 
-        let then_bb = L.append_block context "then" the_function in
+        let then_bb        = L.append_block context "then" the_function in
           let then_builder = List.fold_left statement (L.builder_at_end context then_bb) then_stmt in
-        let () = add_terminal then_builder branch_instr in
+        let ()             = add_terminal then_builder branch_instr in
 
-        let else_bb = L.append_block context "else" the_function in
+        let else_bb        = L.append_block context "else" the_function in
           let else_builder = List.fold_left statement (L.builder_at_end context else_bb) else_stmt in
-        let () = add_terminal else_builder branch_instr in
+        let ()             = add_terminal else_builder branch_instr in
 
-        let _ = L.build_cond_br bool_val then_bb else_bb builder in
-          L.builder_at_end context merge_bb
+        let _              = L.build_cond_br bool_val then_bb else_bb builder in L.builder_at_end context merge_bb
     | SWhile (predicate, body) ->
-        let pred_bb = L.append_block context "while" the_function in
-        let _ = L.build_br pred_bb builder in
+        let pred_bb           = L.append_block context "while" the_function in
+        let _                 = L.build_br pred_bb builder in
 
-        let body_bb = L.append_block context "while_body" the_function in
+        let body_bb           = L.append_block context "while_body" the_function in
             let while_builder = List.fold_left statement (L.builder_at_end context body_bb) body in
-        let () = add_terminal while_builder (L.build_br pred_bb) in
+        let ()                = add_terminal while_builder (L.build_br pred_bb) in
 
-        let pred_builder = L.builder_at_end context pred_bb in
-        let bool_val = expr pred_builder predicate in
+        let pred_builder      = L.builder_at_end context pred_bb in
+        let bool_val          = expr pred_builder predicate in
 
-        let merge_bb = L.append_block context "merge" the_function in
-        let _ = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb  
+        let merge_bb          = L.append_block context "merge" the_function in
+        let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb  
     | _ -> raise (TODO "unimplemented statements in statement")
   and expr builder (t, e) = match e with 
       SLiteral i -> L.const_int i32_t i
@@ -101,7 +107,11 @@ let translate (SProgram(statements)) =
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
     | SCall ("println", [e]) -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
-    | SCall ("int_to_string", [e]) -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder (* TODO: Where to store the returned string? need a strptr? TEST THIS BY STORING THE RESULTING STR IN A VAR AND SEE LLVM GENERATED *)
+    | SCall ("int_to_string", [e]) -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder (* TODO: Where to store the returned string? need a strptr? Need to test this, but actually, this may be automatically handled by SStringlit case! *)
+    | SCall ("float_to_string", [e]) -> L.build_call float_to_string_func [| (expr builder e) |] "float_to_string" builder (* TODO: Where to store the returned string? need a strptr? Need to test this, but actually, this may be automatically handled by SStringlit case! *)
+    | SCall ("bool_to_string", [e]) -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder (* TODO: Where to store the returned string? need a strptr? Need to test this, but actually, this may be automatically handled by SStringlit case! *)
+    | SCall ("int_to_float", [e]) -> L.build_call int_to_float_func [| (expr builder e) |] "int_to_float" builder
+    | SCall ("float_to_int", [e]) -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1' = expr builder e1
@@ -145,10 +155,16 @@ let translate (SProgram(statements)) =
         | A.Not                  -> L.build_not 
       ) e' "tmp" builder
     | _ -> raise (TODO "unimplemented other expressions in expr")
-  and build_function builder (store, retty, formals, body) = raise (TODO "unimplemented build_function")
+  and build_function builder (store, retty, formals, body) = () (* TODO: raise (TODO "unimplemented build_function") *)
   and build_main_function builder statements =
     (* Generate instructions for the actual sPool source *)
-    let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold! *)
+    (* Note to self: at this point, final_builder is pointing to the END of the main function. 
+       The call to statement generates instructions for all statments in this main function, 
+       which subsequently keeps on updating the instruction builder. Therefore, after the last 
+       instruction in main's body is generated, the builder points to that instruction and 
+       this is stored in final_builder. This is different that the `builder` in the argument since that 
+       builder is still pointing to the beginning of the main function! *)
+    let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold to get the updated builder after that statement's instruction! *)
       
     (* End the main basic block with a terminal *)
     terminate_block final_builder A.Int
@@ -165,7 +181,16 @@ let translate (SProgram(statements)) =
 in
 (* We only have one top-level function, main. 
    All statements of the sPool program reside within main *)
-build_main_function builder statements; the_module
+build_main_function builder statements;
+
+(* Ignore compiler warnings for 'hello world' submission *)
+let _ = ltype_of_typ A.Quack in
+let _ = build_function builder (false, A.Quack, [], []) in
+  
+(* Return the final module *)
+the_module
+
+
 (* 
 
 (* Code generation: translate takes a semantically checked AST and
