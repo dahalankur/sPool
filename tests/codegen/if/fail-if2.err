@@ -1,0 +1,1 @@
+Fatal error: exception Semant.TypeError("binary operator && must get identical types, not bool and int in expression: true && 1")

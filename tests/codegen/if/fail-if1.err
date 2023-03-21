@@ -1,0 +1,1 @@
+Fatal error: exception Semant.TypeError("expected "asdf" to be of type bool, but it is type string instead")
