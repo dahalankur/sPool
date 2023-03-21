@@ -27,7 +27,7 @@ const char *float_to_string(double num)
 
 const char *bool_to_string(int b) 
 {
-    if (b == 1) return "true"; return "false";
+    return b? "true": "false";
 }
 
 double int_to_float(int num)
