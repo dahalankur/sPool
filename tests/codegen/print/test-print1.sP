@@ -1,0 +1,1 @@
+println(bool_to_string(true && false && true)) # false

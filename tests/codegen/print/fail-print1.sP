@@ -1,0 +1,1 @@
+print(1) # can't print anything other than a string value

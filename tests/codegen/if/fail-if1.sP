@@ -1,0 +1,1 @@
+if ("asdf"): print("hi!"); # conditional can't be a string!
