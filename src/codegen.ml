@@ -58,7 +58,14 @@ let translate (SProgram(statements)) =
   let float_to_int_t       = L.function_type i32_t [| float_t |] in
   let float_to_int_func    = L.declare_function "float_to_int" float_to_int_t the_module in (* TODO: in lrm, talk about how types are being cast and what precision/accuracy can be lost *)
 
+  let strlen_t             = L.function_type i32_t [| string_t |] in
+  let strlen_func          = L.declare_function "strlen" strlen_t the_module in
 
+  let string_concat_t     = L.function_type string_t [| string_t; string_t |] in
+  let string_concat_func  = L.declare_function "string_concat" string_concat_t the_module in
+
+  let string_substr_t     = L.function_type string_t [| string_t; i32_t; i32_t |] in
+  let string_substr_func  = L.declare_function "string_substr" string_substr_t the_module in
 
   (* TODO: handling shared vars note:
     for shared variables passed to functions as arguments, we need to first evaluate the variable and then pass it to the function
@@ -112,6 +119,9 @@ let translate (SProgram(statements)) =
     | SCall ("bool_to_string", [e]) -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder (* TODO: Where to store the returned string? need a strptr? Need to test this, but actually, this may be automatically handled by SStringlit case! *)
     | SCall ("int_to_float", [e]) -> L.build_call int_to_float_func [| (expr builder e) |] "int_to_float" builder
     | SCall ("float_to_int", [e]) -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
+    | SCall ("String_len", [e]) -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
+    | SCall ("String_concat", [e1; e2]) -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
+    | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1' = expr builder e1
