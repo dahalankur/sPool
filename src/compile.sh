@@ -10,6 +10,20 @@
 
 set -euo pipefail
 
+LLC=llc
+
+# check that llc is installed. If not, look for llc-14
+if ! command -v $LLC &> /dev/null
+then
+    LLC=llc-14
+    if ! command -v $LLC &> /dev/null
+    then
+        echo "llc could not be found. Please make sure llc or llc-14 is installed and in your PATH."
+        exit
+    fi
+fi
+
+
 # check arguments
 if [ $# -ne 2 ]; then
     echo "Usage: compile.sh <file.sP> <exec>"
@@ -38,7 +52,7 @@ make -C "$script_dir"
 "$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
 
 # compile the llvm file to assembly
-llc -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
+"$LLC" -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with builtins.o
 gcc "$sP_file_no_ext".s "$script_dir"/builtins.o -o "$exec"
