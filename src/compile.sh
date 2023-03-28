@@ -1,12 +1,16 @@
 #!/bin/bash
 
-set -euo pipefail
-
 # This script is used to compile a given sP file to the executable, 
 # generating any intermediate files in the process
 # Usage: compile.sh <sP file> <output file>
+# Note: This script generates the .ll and .s files in the current working 
+#       directory, not the directory of the sP file
+#
+# Written by: Team Nautilus
 
-# check the args
+set -euo pipefail
+
+# check arguments
 if [ $# -ne 2 ]; then
     echo "Usage: compile.sh <file.sP> <exec>"
     exit 1
@@ -33,7 +37,7 @@ make -C "$script_dir"
 # run the compiler on the sP file
 "$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
 
-# compile the llvm file to an executable
+# compile the llvm file to assembly
 llc -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with builtins.o

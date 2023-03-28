@@ -6,6 +6,7 @@
 
 module L = Llvm
 module A = Ast
+module S = Stack
 open Sast 
 
 module StringMap = Map.Make(String)
@@ -17,7 +18,8 @@ let translate (SProgram(statements)) =
   and i1_t       = L.i1_type     context
   and float_t    = L.double_type context (* TODO: also update this info in LRM about the internal representation of floating point numbers *)
   and quack_t    = L.void_type   context 
-  and string_t   = L.pointer_type (L.i8_type context) in
+  and string_t   = L.pointer_type (L.i8_type context) 
+  and voidptr_t  = L.pointer_type (L.i8_type context) in
   let the_module = L.create_module context "sPool" in
 
   let ltype_of_typ = function
@@ -28,16 +30,37 @@ let translate (SProgram(statements)) =
   | A.String -> string_t
   | _        -> raise (TODO "unimplemented ltype_of_typ")
   in
-  
+
   let main_t                 = L.function_type i32_t [|  |] in
   let main_function          = L.define_function "main" main_t the_module in
   let builder                = L.builder_at_end context (L.entry_block main_function) in
   let str_format_str         = L.build_global_stringptr "%s"   "strfmt"        builder in
   let str_format_str_endline = L.build_global_stringptr "%s\n" "strfmtendline" builder in
-  let the_function           = main_function in
-  (* TODO: reassign the_function based on which function you are currently in. Preferably this should be handled while building a new function body *)
-  (* TODO: make the_function be a reference and udate it when we see a new function defn *)
-  (* Again, this may not be enough -- we need to handle cases where functions are inside functions, so how do we remember which function was this function's parent? We may need to recursively pass this somehow... *)
+  
+
+  (* ----------- beginning of stack-related bookkeeping functions ----------- 
+    
+     These stack-related functions are only for bookkeeping purposes.
+     Specfically, when generating branching instructions (If and While), 
+     we need to know which function we are inside at that given point since 
+     we need to create new blocks like "merge", "then", "else", etc.
+     For this, the the_function function is useful since it returns the 
+     function definition for which the code is being generated at any 
+     given point. To maintain this invariant, whenever we see a new function 
+     being created (LAMBDA in our case), we need to ensure that its 
+     definition is pushed to the stack and then only its body is generated.
+     The stack must be popped once we are done generating instructions for 
+     that function body.   
+  *)
+  
+  let curr_function     = ref (S.create ()) in 
+  let the_function   () = S.top      !curr_function in
+  let push_function   f = S.push f   !curr_function in
+  let pop_function   () = S.pop      !curr_function in
+  let is_stack_empty () = S.is_empty !curr_function in
+  
+  (* ----------- end of stack-related bookkeeping functions ----------- *)
+
 
   (* Declare all builtins *)
   let printf_t             = L.var_arg_function_type i32_t [| string_t |] in
@@ -67,17 +90,23 @@ let translate (SProgram(statements)) =
   let string_substr_t     = L.function_type string_t [| string_t; i32_t; i32_t |] in
   let string_substr_func  = L.declare_function "string_substr" string_substr_t the_module in
 
+  (* TODO: add more builtin functions here *)
+
   (* TODO: handling shared vars note:
     for shared variables passed to functions as arguments, we need to first evaluate the variable and then pass it to the function
     to maintain our convention of pass-by-value for all nonlists and nonmutexes.
     
     For lists and mutexes, however, this is not the case. They are shared by default, so their addresses are passed in when calling 
     functions! This means that we need to pass the address of the variable to the function, not the value of the variable.
+
+    SHARED VARIABLES ARE DECLARED ON THE HEAP! 
   *)
 
   let rec statement builder = function
       SExpr e -> let _     = expr builder e in builder
     | SIf (predicate, then_stmt, else_stmt) ->
+        let the_function   = the_function () in
+
         let bool_val       = expr builder predicate in
 
         let merge_bb       = L.append_block context "merge" the_function in
@@ -93,6 +122,8 @@ let translate (SProgram(statements)) =
 
         let _              = L.build_cond_br bool_val then_bb else_bb builder in L.builder_at_end context merge_bb
     | SWhile (predicate, body) ->
+        let the_function      = the_function () in
+        
         let pred_bb           = L.append_block context "while" the_function in
         let _                 = L.build_br pred_bb builder in
 
@@ -122,6 +153,7 @@ let translate (SProgram(statements)) =
     | SCall ("String_len", [e]) -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
     | SCall ("String_concat", [e1; e2]) -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
+    | SCall(f, args) -> raise (TODO "unimplemented function calls in expr")
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1' = expr builder e1
@@ -138,7 +170,7 @@ let translate (SProgram(statements)) =
       | A.Leq     -> L.build_fcmp L.Fcmp.Ole
       | A.Greater -> L.build_fcmp L.Fcmp.Ogt
       | A.Geq     -> L.build_fcmp L.Fcmp.Oge
-      | A.Mod     -> raise (Failure "Internal Error: semant should have rejected mod on float")
+      | A.Mod        -> raise (Failure "Internal Error: semant should have rejected mod on float")
       | A.And | A.Or -> raise (Failure "internal Error: semant should have rejected and/or on float")
            ) e1' e2' "tmp" builder 
       else (match op with
@@ -167,17 +199,26 @@ let translate (SProgram(statements)) =
     | _ -> raise (TODO "unimplemented other expressions in expr")
   and build_function builder (store, retty, formals, body) = () (* TODO: raise (TODO "unimplemented build_function") *)
   and build_main_function builder statements =
-    (* Generate instructions for the actual sPool source *)
     (* Note to self: at this point, final_builder is pointing to the END of the main function. 
        The call to statement generates instructions for all statments in this main function, 
        which subsequently keeps on updating the instruction builder. Therefore, after the last 
        instruction in main's body is generated, the builder points to that instruction and 
        this is stored in final_builder. This is different that the `builder` in the argument since that 
        builder is still pointing to the beginning of the main function! *)
+    
+    (* Push main_function definition to the curr_function stack first *)
+    let _ = push_function main_function in
+
     let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold to get the updated builder after that statement's instruction! *)
-      
+    
     (* End the main basic block with a terminal *)
-    terminate_block final_builder A.Int
+    let _ = terminate_block final_builder A.Int in
+    
+    (* Pop main_function definition from the curr_function stack *)
+    let _ = pop_function () in
+      if (not (is_stack_empty ())) then raise (Failure "Internal Error: stack should be empty after building main function. A function was not popped from the stack after it was built.") 
+      else ()
+
   and add_terminal builder instr =
     (match L.block_terminator (L.insertion_block builder) with
       Some _ -> ()
@@ -193,9 +234,12 @@ in
    All statements of the sPool program reside within main *)
 build_main_function builder statements;
 
-(* Ignore compiler warnings for 'hello world' submission *)
+(* Ignore compiler warnings for the 'hello world' submission
+   TODO: remove this later
+*)
 let _ = ltype_of_typ A.Quack in
 let _ = build_function builder (false, A.Quack, [], []) in
+let _ = voidptr_t in
   
 (* Return the final module *)
 the_module

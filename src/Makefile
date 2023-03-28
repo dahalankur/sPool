@@ -10,6 +10,9 @@ all: $(EXEC) builtins.o
 testparser: $(EXEC) runtests.py
 	@python3 runtests.py lexerparser all
 
+testcodegen: $(EXEC) runtests.py
+	@python3 runtests.py codegen all
+
 builtins.o: builtins.c
 	@$(CXX) -c $^
 
