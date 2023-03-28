@@ -49,6 +49,9 @@ The sPool integration testing suite:
 
 Scripts provided:
 
+NOTE: For all scripts mentioned below, please ensure that you are within the `src` 
+directory.
+
 - Compile the compiler:
        A Makefile is provided which compiles the compiler into an executable. 
        When present in the `src` directory, type `make` to generate the executable 
