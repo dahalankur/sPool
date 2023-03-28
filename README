@@ -9,8 +9,41 @@
 The sPool integration testing suite:
 
 - Programs present in the testing suite:
-       - <prog> : <desc>
-       - <prog2> : <desc2> TODO: fill this up, adding info about what's being tested and what output is being produced
+  Our testing suite follows the format of the testing suite we submitted for 
+  our scanner and parser deliverable: there are directories under tests/codegen
+  that contain a bunch of tests. Tests that are expected to succeed are 
+  named with test-<testname[n]>.sP with their corresponding gold-standard output 
+  stored in test-<testname[n]>.out, whereas tests that are expected to fail 
+  are named with fail-<testname[n]>.sP with their corresponding gold-standard 
+  error output stored in fail-<testname[n]>.err. The description of the 
+  programs present in our testing suite is given below:
+       
+       - fail-if1 : this program tries to use a string value as a conditional 
+                    of an if-statement. This is illegal, which is why the test
+                    fails and fail-if1.sP can not be compiled
+       - fail-if2 : this program uses illegal operands for operator &&, i.e. it 
+                    `ands` a bool with an integer, which leads to a semantic error.
+       - test-if1 : this program tests legal one-layer and nested if-else statements.
+                    The main purpose of this test is to test the branching works 
+                    as expected, and there are print statements that produce 
+                    observable output that confirm that the program control flow 
+                    is as expected.
+       - test-if2 : this program tests a legal one-layer if-else statement, combined
+                    with boolean arithmetic operations on the conditional part 
+                    of the if-statement. Observable output using print is 
+                    produced to test if the conditional branching worked.
+       - fail-print1 : this program tries to use print with an integer literal,
+                       however, only string values are allowed to be passed to print.
+                       Hence, this test fails.
+       - fail-print2 : this program tries to print with a boolean literal,
+                       however, only string values are allowed to be passed to print.
+                       Hence, this test fails.
+       - test-print1 : this program tests printing using our bool_to_string function
+                       to convert a boolean to a string so it is a valid argument to
+                       print
+       - test-print2 : this program tests printing using a string literal
+       - test-print3 : this program tests printing using a string literal containing
+                       newlines, an edge case.
 
 --------------------------------------------------------------------------------
 
@@ -29,22 +62,67 @@ Scripts provided:
        are needed to compile the sPool compiler or to run any of the 
        included tests.
 
-- Link builtins.c TODO: make this better, put in a script
-       ./toplevel.native <file> > hello.ll # takes sPool code on command line, or from file
-       llc hello.ll                        # produces hello.s
-       gcc builtins.c -c                   # produces builtins.o
-       gcc hello.s builtins.o -o hello     # link the builtins with the assembly
-       ./hello
+- Run all tests:
+       To run all tests in this "Hello world" testing suite, type:
+       
+              `make testcodegen`
 
-- Run tests:
+       This should automatically compile the compiler and run our `runtests.py` python script.
 
+- Run a test for a specific directory:
+
+       To run the tests for a single directory 
+              `python3 runtests.py codegen <TESTDIR>` where <TESTDIR> is the
+       name of the directory in sPool/tests/codegen/
+       
+       Currently, we have `if` and `print` tests. Run them with
+              `python3 runtests.py codegen if`
+              `python3 runtests.py codegen print`
 
 - Run the compiler on a given source file:
+
+       To compile a specific sPool source file, type
+              `./compile.sh <file> <executable>`
+       
+       where <file> is the sPool src file to be compiled, and the <executable>
+       is the name of the executable generated. The intermediate files generated 
+       in the process will be present in the same directory from which the 
+       compile script was run. There are two files generated for each sPool 
+       source file compiled -- the LLVM IR (having .ll extension) and the 
+       assembly file (having .s extension).
+
+       For instance, if you want to compile a file hello.sP, run:
+              `./compile.sh hello.sP a.out`
+       The resulting executable will be named a.out, so running `./a.out` will 
+       execute the program.
 
 --------------------------------------------------------------------------------
 
 How testing works:
 
 - Successful compilation and output validation:
+       If the compilation was successful, then it would exhibit no errors. 
+       The compilation step involves three stages: compiling the sPool source 
+       file to LLVM IR, compiling the LLVM IR to assembly, and then linking 
+       this assembly file with the external object file written in C to produce
+       the final executable. The testing script does all this to produce an 
+       executable for every test that is expected to pass. If there were any 
+       errors in any of these steps, the process of testing is stopped and the 
+       error is reported. Otherwise, the executable is run for each test whose
+       output is compared with what we expect (aka the "gold standard", present 
+       in the .out files). If they are equivalent the test passes with the 
+       message `Test <test.sP> PASSED`, where `test.sP` is the test file. 
+       Any errors would show the expected output and the output we got on the 
+       test report screen.
 
 - Unsuccessful compilation:
+       If the compilation was unsuccessful, it could be due to a semantic error, 
+       a lexing error, or a parsing error. In this case, an error will be raised
+       terminating compilation. Our compilation error strategy is to halt 
+       compilation at the time of the first error and display the error message
+       to the user.
+
+       The testing script will, for tests that are expected to fail, compare 
+       the expected error message against the one we received while trying 
+       to compile the program and determine if the compilation process 
+       was successful or not.
