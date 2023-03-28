@@ -46,7 +46,8 @@ exec=$2
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # run make to compile the compiler
-make clean -C "$script_dir" && make -C "$script_dir"
+rm -f "$script_dir"/builtins.o
+make -C "$script_dir"
 
 # run the compiler on the sP file
 "$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
