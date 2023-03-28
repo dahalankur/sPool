@@ -34,7 +34,7 @@ make -C "$script_dir"
 "$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
 
 # compile the llvm file to an executable
-llc "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
+llc -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with builtins.o
 gcc "$sP_file_no_ext".s "$script_dir"/builtins.o -o "$exec"
