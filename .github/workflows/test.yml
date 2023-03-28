@@ -31,5 +31,5 @@ jobs:
     - name: Run lexer and scanner tests
       run: make testparser -j -C src
     
-#     - name: Run semantic checker tests
-#       run: make testsemant -j -C src
+    - name: Run codegen tests
+      run: make testcodegen -j -C src
