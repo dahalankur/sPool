@@ -21,7 +21,7 @@ and string_t   = L.pointer_type (L.i8_type context)
 and voidptr_t  = L.pointer_type (L.i8_type context)
 
 let ltype_of_typ = function
-A.Int    -> i32_t
+  A.Int    -> i32_t
 | A.Bool   -> i1_t
 | A.Float  -> float_t
 | A.Quack  -> quack_t
@@ -30,13 +30,7 @@ A.Int    -> i32_t
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
-  
-  (* For each variable bound in current scope, are they shared across thread?
-     Store this information in a map from variable name to bool   
-  *)
   shared : bool StringMap.t;
-
-  (* Enclosing scope *)
   parent : symbol_table option;
 }
 
@@ -207,8 +201,8 @@ let translate (SProgram(statements)) =
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
     | SAssign (name, (t, e)) -> 
         let e' = expr builder (t, e) in
-        let _  = add_to_scope (find_shared !env name, e', name) builder t in (* TODO: careful with shared vars, how to deal with ptr to heap? *)
-        let _  = L.build_store e' (find_variable !env name) builder in builder
+        (* let _  = add_to_scope (find_shared !env name, e', name) builder t in TODO: careful with shared vars, how to deal with ptr to heap? *)
+        let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: why does microc not add to stringmap in assignment? *)
     | SDefine(false, typ, name, e) -> 
         let e' = expr builder e in
         let _ = add_to_scope (false, e', name) builder typ in
