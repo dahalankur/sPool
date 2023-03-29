@@ -11,25 +11,83 @@ open Sast
 
 module StringMap = Map.Make(String)
 
-let translate (SProgram(statements)) = 
-  let context    = L.global_context () in
-  let i32_t      = L.i32_type    context (* TODO: if we use these types, can we update our LRM to say integers are 32-bits and no longer platform dependent? *)
-  and i8_t       = L.i8_type     context
-  and i1_t       = L.i1_type     context
-  and float_t    = L.double_type context (* TODO: also update this info in LRM about the internal representation of floating point numbers *)
-  and quack_t    = L.void_type   context 
-  and string_t   = L.pointer_type (L.i8_type context) 
-  and voidptr_t  = L.pointer_type (L.i8_type context) in
-  let the_module = L.create_module context "sPool" in
+let context    = L.global_context ()
+let i32_t      = L.i32_type    context (* TODO: if we use these types, can we update our LRM to say integers are 32-bits and no longer platform dependent? *)
+and i8_t       = L.i8_type     context
+and i1_t       = L.i1_type     context
+and float_t    = L.double_type context (* TODO: also update this info in LRM about the internal representation of floating point numbers *)
+and quack_t    = L.void_type   context 
+and string_t   = L.pointer_type (L.i8_type context) 
+and voidptr_t  = L.pointer_type (L.i8_type context)
 
-  let ltype_of_typ = function
-    A.Int    -> i32_t
-  | A.Bool   -> i1_t
-  | A.Float  -> float_t
-  | A.Quack  -> quack_t
-  | A.String -> string_t
-  | _        -> raise (TODO "unimplemented ltype_of_typ")
-  in
+let ltype_of_typ = function
+A.Int    -> i32_t
+| A.Bool   -> i1_t
+| A.Float  -> float_t
+| A.Quack  -> quack_t
+| A.String -> string_t
+| _        -> raise (TODO "unimplemented ltype_of_typ")
+
+type symbol_table = {
+  variables : L.llvalue StringMap.t;
+  
+  (* For each variable bound in current scope, are they shared across thread?
+     Store this information in a map from variable name to bool   
+  *)
+  shared : bool StringMap.t;
+
+  (* Enclosing scope *)
+  parent : symbol_table option;
+}
+
+let rec find_variable (scope : symbol_table) name =
+  try
+    (* Try to find binding in nearest block *)
+    StringMap.find name scope.variables
+  with Not_found -> (* Try looking in outer blocks *)
+    match scope.parent with
+      Some(parent) -> find_variable parent name
+    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
+
+let rec find_shared (scope : symbol_table) name = 
+  try
+    (* Try to find binding in nearest block *)
+    StringMap.find name scope.shared
+  with Not_found -> (* Try looking in outer blocks *)
+    match scope.parent with
+      Some(parent) -> find_shared parent name
+    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
+
+(* initial env *)
+let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
+
+let add_to_scope (s, v, n) builder t =
+    let local = L.build_alloca (ltype_of_typ t) n builder in
+    let _     = L.build_store v local builder in
+    let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+      in env := new_scope 
+
+let push_scope () = 
+  let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env)}
+  in env := new_scope
+
+let pop_scope () = 
+  let parent_scope = match !env.parent with 
+      Some(parent) -> parent
+    | _            -> raise (Failure "Internal Error: should not happen in pop_scope; should have been caught in semantic analysis")
+  in env := parent_scope
+
+  (* Declare each global variable; remember its value in a map *)
+  (* let global_vars : L.llvalue StringMap.t =
+    let global_var m (t, n) = 
+      let init = match t with
+          A.Float -> L.const_float (ltype_of_typ t) 0.0
+        | _ -> L.const_int (ltype_of_typ t) 0
+      in StringMap.add n (L.define_global n init the_module) m in
+    List.fold_left global_var StringMap.empty globals in *)
+
+let translate (SProgram(statements)) = 
+  let the_module = L.create_module context "sPool" in
 
   let main_t                 = L.function_type i32_t [|  |] in
   let main_function          = L.define_function "main" main_t the_module in
@@ -108,25 +166,34 @@ let translate (SProgram(statements)) =
         let the_function   = the_function () in
 
         let bool_val       = expr builder predicate in
+        
+        let _ = push_scope () in
 
         let merge_bb       = L.append_block context "merge" the_function in
           let branch_instr = L.build_br merge_bb in
-
+        
         let then_bb        = L.append_block context "then" the_function in
           let then_builder = List.fold_left statement (L.builder_at_end context then_bb) then_stmt in
         let ()             = add_terminal then_builder branch_instr in
-
+        
+        let _ = pop_scope() in
+        let _ = push_scope () in
+        
         let else_bb        = L.append_block context "else" the_function in
           let else_builder = List.fold_left statement (L.builder_at_end context else_bb) else_stmt in
         let ()             = add_terminal else_builder branch_instr in
-
+        
+        let _ = pop_scope() in
+        
         let _              = L.build_cond_br bool_val then_bb else_bb builder in L.builder_at_end context merge_bb
     | SWhile (predicate, body) ->
         let the_function      = the_function () in
         
         let pred_bb           = L.append_block context "while" the_function in
         let _                 = L.build_br pred_bb builder in
-
+        
+        let _ = push_scope() in
+        
         let body_bb           = L.append_block context "while_body" the_function in
             let while_builder = List.fold_left statement (L.builder_at_end context body_bb) body in
         let ()                = add_terminal while_builder (L.build_br pred_bb) in
@@ -134,13 +201,26 @@ let translate (SProgram(statements)) =
         let pred_builder      = L.builder_at_end context pred_bb in
         let bool_val          = expr pred_builder predicate in
 
+        let _ = pop_scope() in (* TODO: test with a loop that has variable definitions inside of it.... it should be redefined every time *)
+
         let merge_bb          = L.append_block context "merge" the_function in
-        let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb  
+        let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
+    | SAssign (name, (t, e)) -> 
+        let e' = expr builder (t, e) in
+        let _  = add_to_scope (find_shared !env name, e', name) builder t in (* TODO: careful with shared vars, how to deal with ptr to heap? *)
+        let _  = L.build_store e' (find_variable !env name) builder in builder
+    | SDefine(false, typ, name, e) -> 
+        let e' = expr builder e in
+        let _ = add_to_scope (false, e', name) builder typ in
+        let _  = L.build_store e' (find_variable !env name) builder in builder
+    | SDefine(true, typ, name, e) -> raise (TODO "shared variable definition not implemented yet")
     | _ -> raise (TODO "unimplemented statements in statement")
   and expr builder (t, e) = match e with 
       SLiteral i -> L.const_int i32_t i
     | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
     | SFliteral l -> L.const_float_of_string float_t l
+    | SVar (false, name) -> L.build_load (find_variable !env name) name builder
+    | SVar (true, name) -> raise (TODO "shared variables not implemented yet")
     | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
@@ -280,7 +360,7 @@ let translate (globals, functions) =
   and void_t     = L.void_type   context 
   (* Create an LLVM module -- this is a "container" into which we'll 
      generate actual code *)
-  and the_module = L.create_module context "MicroC" in
+  and the_module = L.create_module context "C" in
 
   (* Convert MicroC types to LLVM types *)
   let ltype_of_typ = function
