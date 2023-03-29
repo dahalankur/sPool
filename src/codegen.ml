@@ -199,14 +199,13 @@ let translate (SProgram(statements)) =
 
         let merge_bb          = L.append_block context "merge" the_function in
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
-    | SAssign (name, (t, e)) -> 
-        let e' = expr builder (t, e) in
+    | SAssign (name, e) -> 
+        let e' = expr builder e in (* TODO: be careful with assignments to shared variables, this has to be dealt with differently! but of course lists and mutexes are dealt with by default so this is more relevant for other type *)
         (* let _  = add_to_scope (find_shared !env name, e', name) builder t in TODO: careful with shared vars, how to deal with ptr to heap? *)
         let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: why does microc not add to stringmap in assignment? *)
     | SDefine(false, typ, name, e) -> 
         let e' = expr builder e in
-        let _ = add_to_scope (false, e', name) builder typ in
-        let _  = L.build_store e' (find_variable !env name) builder in builder
+        let _ = add_to_scope (false, e', name) builder typ in builder
     | SDefine(true, typ, name, e) -> raise (TODO "shared variable definition not implemented yet")
     | _ -> raise (TODO "unimplemented statements in statement")
   and expr builder (t, e) = match e with 
