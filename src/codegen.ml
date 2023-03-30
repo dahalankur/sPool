@@ -56,18 +56,25 @@ let rec find_shared (scope : symbol_table) name =
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
 
 let add_to_scope (s, v, n) builder t =
-  (* TODO: 
-  
-    generate different instructions based on if the variable is shared or not
-    when not shared, this should suffice.
-    when shared, generate alloc (stack -> allocate a pointer to the supplied type t), malloc (allocate space for the actual type on the heap using build_malloc), 
-    store (the value on the heap), store (the address of the heap-allocated object on the stack). Need to think about updating the scope -> should 
-    the scope be updated with the address on the stack or the address on the heap? I think it should be the address on the heap since that is what
-    we will be using to access the variable (i.e. dereferencing the pointer on the stack) but we should think more about this and actually look at the
-    C code that does this and what LLVM it spits out. We should accordingly handle assignment and svar (in general) and formals in functions. nice!
 
-    NOTE: this was found by looking at the generated code for a c program that does the same thing.
-    *)
+    (* TODO: if we are adding a list to scope, we need not allocate
+      memory on the heap because that will have already been done in the
+    list_insert function for sliteral case. therefore, we can just store
+    the address of the list on the stack. I don't think we even have to generate 
+    any alloc or store instructions for a list, for the listlit case will have 
+    already done that. therefore, for lists, we only need to add the list to the 
+    scope and nothing else. there may be differences between using list literal instead of 
+    a variable in function calls, like List_insert([], 1, 2) vs. List_insert(l, 1, 2) 
+    where l is a list variable. we need to test this. essentially, we need to handle 
+    the case where we are passing a list to a function...it must be always 
+    the heap value that is passed, not the stack value. therefore, while 
+    generating code for args that are lists, we need to generate a build_load
+    instruction to get the heap value of the list.
+
+    
+    need to handle this and mutex 
+    case separately here! 
+      *)
 
   if not s then
     let local = L.build_alloca (ltype_of_typ t) n builder in
@@ -79,7 +86,6 @@ let add_to_scope (s, v, n) builder t =
     let heap  = L.build_malloc (ltype_of_typ t) n builder in
     let _     = L.build_store heap local builder in
     let _     = L.build_store v heap builder in
-
     let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
       in env := new_scope
 
@@ -241,15 +247,16 @@ let translate (SProgram(statements)) =
     | SFliteral l -> L.const_float_of_string float_t l
     | SListLit l -> 
       let llvals = List.map (expr builder) l in
-      let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations on the heap *)
+      let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations for the llvals on the heap *)
       let list_ptr = L.build_alloca list_t "list_ptr" builder in
-      let _ = L.build_store (L.const_null list_t) list_ptr builder in
+      let _ = L.build_store (L.const_null list_t) list_ptr builder in (* Node *l = NULL; *)
       let list_ptr_val = L.build_load list_ptr "list_ptr" builder in
-      let list_ptr_val = List.fold_left (fun list_ptr_val (i, llval) -> 
+      let acc_list = List.fold_left (fun list_ptr_val (i, llval) -> 
+        (* cast each llval to a void * before inserting it into the list *)
         let void_cast = L.build_bitcast llval voidptr_t "voidptr" builder in
         L.build_call list_insert_func [| list_ptr_val; L.const_int i32_t i; void_cast |] "list_insert" builder
       ) list_ptr_val (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
-      let _ = L.build_store list_ptr_val list_ptr builder in
+      let _ = L.build_store acc_list list_ptr builder in (* assign the generated list to the initially allocated stack pointer for the list *)
       list_ptr (* return the stack address of the heap-allocated list *)
     | SVar (s, name) -> L.build_load (find_variable !env name) name builder
     | SNoexpr -> L.const_int i32_t 0
@@ -273,6 +280,16 @@ let translate (SProgram(statements)) =
       let listlit = expr builder e in
       let listlit_val = L.build_load listlit "listlit" builder in (* get the list from the heap *)
       L.build_call list_len_func [| listlit_val |] "List_len" builder
+    | SCall ("List_insert", [e1; e2; e3]) -> 
+      let listlit = expr builder e1 in
+      let listlit_val = L.build_load listlit "listlit" builder in
+      let index = expr builder e2 in
+      let llval = expr builder e3 in
+      let heap_ptr = build_malloc builder llval in
+      let void_cast = L.build_bitcast heap_ptr voidptr_t "voidptr" builder in
+      let new_list = L.build_call list_insert_func [| listlit_val; index; void_cast |] "List_insert" builder (* TODO: since List_insert returns nothing from the perspective of sPool program, we can only check this once we have svar, assign and define implemented for list variables *)
+      (* store the list back to the stack ptr to avoid the stack ptr from pointing to the old list *)
+      in L.build_store new_list listlit builder (* TODO: this step is critical whenever dealing with lists. the C functions will implicitly change the lists on the heap but now the stack ptr will need to be updated to point to the fresh memory address for the newly created list *)
     | SCall ("List_int_print", [e]) -> (* function for debugging purposes *)
       let listlit = expr builder e in
       let listlit_val = L.build_load listlit "listlit" builder in

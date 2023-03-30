@@ -33,6 +33,9 @@ void *List_at(Node *l, int index)
     return temp->data;
 }
 
+// data to be inserted should have already been
+// allocated on the heap by the time this function 
+// is called.
 Node *List_insert(Node *head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
 {
     int len = List_len(head); assert((index >= 0) && (index <= len));
