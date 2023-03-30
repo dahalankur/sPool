@@ -1,3 +1,12 @@
+# helper function to create a list of a given length, pre-filled with a given value
+def list<int> List(int len, int value):
+    int i = 0
+    list<int> result = []
+    while (i < len):
+        List_insert(result, i, value)
+        i = i + 1;
+    return result;
+
 def list<int> List_int_pmap(list<int> l, (int -> int) f):
     int i = 0
     int j = 0
