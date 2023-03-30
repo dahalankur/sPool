@@ -46,7 +46,7 @@ exec=$2
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # run make to compile the compiler
-rm -f "$script_dir"/builtins.o
+rm -f "$script_dir"/*.o
 make -C "$script_dir"
 
 # run the compiler on the sP file
@@ -56,4 +56,4 @@ make -C "$script_dir"
 "$LLC" -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with builtins.o
-gcc "$sP_file_no_ext".s "$script_dir"/builtins.o -o "$exec"
+gcc "$sP_file_no_ext".s "$script_dir"/builtins.o "$script_dir"/list.o -o "$exec"

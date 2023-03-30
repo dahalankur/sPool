@@ -162,7 +162,11 @@ let translate (SProgram(statements)) =
   let list_insert_t      = L.function_type list_t [| list_t; i32_t; voidptr_t |] in
   let list_insert_func   = L.declare_function "List_insert" list_insert_t the_module in
 
+  let list_len_t        = L.function_type i32_t [| list_t |] in
+  let list_len_func     = L.declare_function "List_len" list_len_t the_module in
 
+  let list_int_print_t = L.function_type quack_t [| list_t |] in
+  let list_int_print_func = L.declare_function "List_int_print" list_int_print_t the_module in
   (* ----- end of builtin function declarations ----- *)
 
   (* TODO: handling shared vars note:
@@ -238,16 +242,15 @@ let translate (SProgram(statements)) =
     | SListLit l -> 
       let llvals = List.map (expr builder) l in
       let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations on the heap *)
-      (* Copilot, do your thing. we need to build calls to List_insert for all the malloced_ptrs in the list. The result is stored in a stack pointer to a list_t *)
       let list_ptr = L.build_alloca list_t "list_ptr" builder in
       let _ = L.build_store (L.const_null list_t) list_ptr builder in
-      (* use for loop to insert each llval into the list *)
-      let _ = List.fold_left (fun i llval -> 
-        let _ = L.build_call list_insert_func [| (L.build_load list_ptr "list" builder); (L.const_int i32_t i); llval |] "list_insert" builder in
-        i + 1
-      ) 0 malloced_ptrs in
-      
-      list_ptr
+      let list_ptr_val = L.build_load list_ptr "list_ptr" builder in
+      let list_ptr_val = List.fold_left (fun list_ptr_val (i, llval) -> 
+        let void_cast = L.build_bitcast llval voidptr_t "voidptr" builder in
+        L.build_call list_insert_func [| list_ptr_val; L.const_int i32_t i; void_cast |] "list_insert" builder
+      ) list_ptr_val (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
+      let _ = L.build_store list_ptr_val list_ptr builder in
+      list_ptr (* return the stack address of the heap-allocated list *)
     | SVar (s, name) -> L.build_load (find_variable !env name) name builder
     | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
@@ -262,6 +265,18 @@ let translate (SProgram(statements)) =
     | SCall ("String_len", [e]) -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
     | SCall ("String_concat", [e1; e2]) -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
+    | SCall ("List_len", [e]) -> 
+      (* Unlike other shared variables, lists and mutexes need two levels of indirection since they are passed by reference and their principal type is a pointer itself 
+         The first redirection is to get the pointer to the heap-allocated list from the stack, which should be the result of the SListLit case above
+         The second redirection is to get the actual list from the heap, which is the result of loading from the pointer to the heap-allocated list. TODO: in define, assign, svar, test cases for nested lists
+      *)
+      let listlit = expr builder e in
+      let listlit_val = L.build_load listlit "listlit" builder in (* get the list from the heap *)
+      L.build_call list_len_func [| listlit_val |] "List_len" builder
+    | SCall ("List_int_print", [e]) -> (* function for debugging purposes *)
+      let listlit = expr builder e in
+      let listlit_val = L.build_load listlit "listlit" builder in
+      L.build_call list_int_print_func [| listlit_val |] "" builder (* empty string because it is a void function *)
     | SCall(f, args) -> raise (TODO "unimplemented function calls in expr")
     | SBinop (e1, op, e2) ->
       let (t, _) = e1

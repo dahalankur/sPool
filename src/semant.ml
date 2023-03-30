@@ -83,6 +83,7 @@ let builtin_functions =
                   ("List_replace", Arrow([List(Alpha); Int; Alpha], Quack));
                   ("List_insert", Arrow([List(Alpha); Int; Alpha], Quack)); 
                   ("List_remove", Arrow([List(Alpha); Int], Quack));
+                  (* TODO: for debugging only: *) ("List_int_print", Arrow([List(Int)], Quack));
                   
                               (* Printing built-ins *)
                   ("print", Arrow([String], Quack)); ("println", Arrow([String], Quack));
