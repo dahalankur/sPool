@@ -19,14 +19,16 @@ and float_t    = L.double_type context (* TODO: also update this info in LRM abo
 and quack_t    = L.void_type   context 
 and string_t   = L.pointer_type (L.i8_type context) 
 and voidptr_t  = L.pointer_type (L.i8_type context)
+and list_t     = L.pointer_type (L.struct_type context [| L.pointer_type (L.i8_type context); L.pointer_type (L.named_struct_type context "Node") |])
 
 let ltype_of_typ = function
-  A.Int    -> i32_t
-| A.Bool   -> i1_t
-| A.Float  -> float_t
-| A.Quack  -> quack_t
-| A.String -> string_t
-| _        -> raise (TODO "unimplemented ltype_of_typ")
+  A.Int     -> i32_t
+| A.Bool    -> i1_t
+| A.Float   -> float_t
+| A.Quack   -> quack_t
+| A.String  -> string_t
+| A.List(_) -> list_t
+| _         -> raise (TODO "unimplemented ltype_of_typ")
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
@@ -157,6 +159,10 @@ let translate (SProgram(statements)) =
   let string_eq_t        = L.function_type i1_t [| string_t; string_t |] in
   let string_eq_func     = L.declare_function "string_eq" string_eq_t the_module in
 
+  let list_insert_t      = L.function_type list_t [| list_t; i32_t; voidptr_t |] in
+  let list_insert_func   = L.declare_function "List_insert" list_insert_t the_module in
+
+
   (* ----- end of builtin function declarations ----- *)
 
   (* TODO: handling shared vars note:
@@ -221,12 +227,28 @@ let translate (SProgram(statements)) =
         let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
     | _ -> raise (TODO "unimplemented statements in statement")
+  and build_malloc builder llval = 
+      let heap = L.build_malloc (L.type_of llval) "heap" builder in
+      let _ = L.build_store llval heap builder in
+    heap
   and expr builder (t, e) = match e with 
       SLiteral i -> L.const_int i32_t i
     | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
     | SFliteral l -> L.const_float_of_string float_t l
+    | SListLit l -> 
+      let llvals = List.map (expr builder) l in
+      let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations on the heap *)
+      (* Copilot, do your thing. we need to build calls to List_insert for all the malloced_ptrs in the list. The result is stored in a stack pointer to a list_t *)
+      let list_ptr = L.build_alloca list_t "list_ptr" builder in
+      let _ = L.build_store (L.const_null list_t) list_ptr builder in
+      (* use for loop to insert each llval into the list *)
+      let _ = List.fold_left (fun i llval -> 
+        let _ = L.build_call list_insert_func [| (L.build_load list_ptr "list" builder); (L.const_int i32_t i); llval |] "list_insert" builder in
+        i + 1
+      ) 0 malloced_ptrs in
+      
+      list_ptr
     | SVar (s, name) -> L.build_load (find_variable !env name) name builder
-    (*| SVar (true, name) -> raise (TODO "shared variables not implemented yet")*)
     | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder

@@ -82,7 +82,7 @@ let builtin_functions =
                   ("List_len", Arrow([List(Alpha)], Int)); ("List_at", Arrow([List(Alpha); Int], Alpha)); 
                   ("List_replace", Arrow([List(Alpha); Int; Alpha], Quack));
                   ("List_insert", Arrow([List(Alpha); Int; Alpha], Quack)); 
-                  ("List_remove", Arrow([List(Alpha); Int], Quack)); ("List", Arrow([Int; Alpha], List(Alpha))); (* TODO: If the Int arg to List() happens to be 0, it has to return an empty list *)
+                  ("List_remove", Arrow([List(Alpha); Int], Quack));
                   
                               (* Printing built-ins *)
                   ("print", Arrow([String], Quack)); ("println", Arrow([String], Quack));
