@@ -82,7 +82,7 @@ let builtin_functions =
                   ("List_len", Arrow([List(Alpha)], Int)); ("List_at", Arrow([List(Alpha); Int], Alpha)); 
                   ("List_replace", Arrow([List(Alpha); Int; Alpha], Quack));
                   ("List_insert", Arrow([List(Alpha); Int; Alpha], Quack)); 
-                  ("List_remove", Arrow([List(Alpha); Int], Quack)); ("List", Arrow([Int; Alpha], List(Alpha)));
+                  ("List_remove", Arrow([List(Alpha); Int], Quack)); ("List", Arrow([Int; Alpha], List(Alpha))); (* TODO: If the Int arg to List() happens to be 0, it has to return an empty list *)
                   
                               (* Printing built-ins *)
                   ("print", Arrow([String], Quack)); ("println", Arrow([String], Quack));
@@ -94,7 +94,7 @@ let builtin_functions =
                   
                               (* String built-ins *)
                   ("String_len", Arrow([String], Int)); ("String_concat", Arrow([String; String], String));
-                  ("String_substr", Arrow([String; Int; Int], String)); 
+                  ("String_substr", Arrow([String; Int; Int], String)); ("String_eq", Arrow([String; String], Bool)); 
 
                               (* Mutex built-ins *)
                   ("Mutex", Arrow([Quack], Mutex)); ("Mutex_lock", Arrow([Mutex], Quack));
@@ -241,13 +241,20 @@ let check (Program(statements)) =
               | Mod                        when t1 = Int                 -> Int
               | And | Or                   when t1 = Bool                -> Bool
               | Geq | Greater | Leq | Less when (t1 = Int || t1 = Float) -> Bool
-              | Neq | Equal                when (t1 = Int || t1 = Bool || t1 = String || t1 = Float) -> Bool
+              | Neq | Equal                when (t1 = Int || t1 = Bool || t1 = String || t1 = Float) -> Bool (* TODO: do not allow == and != on strings! Mention this in LRM as well, for we are using C-style strings. We need to have a builtin called String_eq that explicitly compares strings and not just the pointers *)
               | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr))
-            in (ty, SBinop(sexpr1, op, sexpr2)))
+            in (ty, SBinop(sexpr1, op, sexpr2))) (* TODO: update LRM about illegal == and != between strings *)
     | Lambda(store, t, formals, statements) -> 
-        let count_return s = List.fold_left (fun acc s -> match s with Return(_) -> acc + 1 | _ -> acc) 0 s in
+        let count_return s = 
+          let rec count_return' s acc = match s with
+              [] -> acc
+            | Return(_) :: xs -> count_return' xs (acc + 1)
+            | If(_, s1, s2) :: xs -> count_return' (s1 @ s2 @ xs) acc (* Only count Return in IF or WHILE inside a function body *)
+            | While(_, s) :: xs -> count_return' (s @ xs) acc
+            | _ :: xs -> count_return' xs acc (* Other constructs allow returns in them (nested functions) *)
+          in count_return' s 0 in
         let num_returns = count_return statements in 
-          if not (num_returns = 1) then raise (SemanticError "Function body must have exactly one top-level return statement") else 
+          if not (num_returns = 1) then raise (SemanticError ("Function body must have exactly 1 return statement, not " ^ string_of_int num_returns)) else 
         let is_shared t = match t with Mutex | List(_) -> true | _ -> false in
         let _ = push_scope () in
         let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared....IDEA: should all shared variables be declared on the heap? this solves all our problems related to thread/function scoping/closure! *)

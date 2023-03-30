@@ -74,6 +74,11 @@ const char *string_substr(const char *s1, int m, int n)
     return result;
 }
 
+int string_eq(const char *s1, const char *s2)
+{
+    return strcmp(s1, s2) == 0;
+}
+
 #if DEBUG
 int main(void) {
     printf("Enter a number: \n");

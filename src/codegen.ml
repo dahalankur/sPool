@@ -142,6 +142,9 @@ let translate (SProgram(statements)) =
   let string_substr_t     = L.function_type string_t [| string_t; i32_t; i32_t |] in
   let string_substr_func  = L.declare_function "string_substr" string_substr_t the_module in
 
+  let string_eq_t        = L.function_type i1_t [| string_t; string_t |] in
+  let string_eq_func     = L.declare_function "string_eq" string_eq_t the_module in
+
   (* TODO: add more builtin functions here *)
 
   (* TODO: handling shared vars note:
@@ -223,6 +226,7 @@ let translate (SProgram(statements)) =
     | SCall ("bool_to_string", [e]) -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder (* TODO: Where to store the returned string? need a strptr? Need to test this, but actually, this may be automatically handled by SStringlit case! *)
     | SCall ("int_to_float", [e]) -> L.build_call int_to_float_func [| (expr builder e) |] "int_to_float" builder
     | SCall ("float_to_int", [e]) -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
+    | SCall ("String_eq", [e1; e2]) -> L.build_call string_eq_func [| (expr builder e1); (expr builder e2) |] "string_eq" builder
     | SCall ("String_len", [e]) -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
     | SCall ("String_concat", [e1; e2]) -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder

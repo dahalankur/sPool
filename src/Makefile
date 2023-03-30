@@ -13,7 +13,7 @@ testparser: $(EXEC) runtests.py
 testcodegen: $(EXEC) runtests.py
 	@python3 runtests.py codegen all
 
-builtins.o: builtins.c
+%.o: %.c
 	@$(CXX) -c $^
 
 $(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml codegen.ml

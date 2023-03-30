@@ -33,6 +33,6 @@ let () =
         match !action with
           Sast    -> print_endline (Sast.sast_of_sprogram sast)
         | LLVM_IR -> print_endline (Llvm.string_of_llmodule (Codegen.translate sast))
-        | Compile -> let m = Codegen.translate sast in Llvm_analysis.assert_valid_module m; (* TODO: do we actually need llvm analysis, or do we need to do something else here? Read the spec. *)
+        | Compile -> let m = Codegen.translate sast in Llvm_analysis.assert_valid_module m;
                       print_endline (Llvm.string_of_llmodule m)
         | _ -> raise (Failure "Internal error: no action selected")
