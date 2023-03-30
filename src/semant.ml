@@ -255,9 +255,9 @@ let check (Program(statements)) =
           in count_return' s 0 in
         let num_returns = count_return statements in 
           if not (num_returns = 1) then raise (SemanticError ("Function body must have exactly 1 return statement, not " ^ string_of_int num_returns)) else 
-        let is_shared t = match t with Mutex | List(_) -> true | _ -> false in
+        let is_shared t = match t with Mutex | List(_) -> true | _ -> false in (* only lists and mutexes are pointers; they are allocated on the heap TODO: what about strings? try writing functions that take in strings and see if it works in codegen *)
         let _ = push_scope () in
-        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared....IDEA: should all shared variables be declared on the heap? this solves all our problems related to thread/function scoping/closure! *)
+        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared... *)
         (* check whether return statement is the last statement in function body *)
         let rec check_body xs acc = match xs with       
             [Return(e)] -> let (t', se) as sx = check_expr e in
