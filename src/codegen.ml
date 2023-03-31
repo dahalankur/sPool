@@ -69,7 +69,8 @@ let add_to_scope (s, v, n) builder t =
     the case where we are passing a list to a function...it must be always 
     the heap value that is passed, not the stack value. therefore, while 
     generating code for args that are lists, we need to generate a build_load
-    instruction to get the heap value of the list.
+    instruction to get the heap value of the list. see List_insert call 
+    for an example of how to do this with lists.
 
     
     need to handle this and mutex 
@@ -294,7 +295,23 @@ let translate (SProgram(statements)) =
       let listlit = expr builder e in
       let listlit_val = L.build_load listlit "listlit" builder in
       L.build_call list_int_print_func [| listlit_val |] "" builder (* empty string because it is a void function *)
-    | SCall(f, args) -> raise (TODO "unimplemented function calls in expr")
+    | SCall(f, args) -> 
+      (* TODO: think about how lists are currently dealt with
+when passing them as arguments to functions, how do we ensure that 
+they are always passed by reference?
+Maybe we need to convert all functions that take in lists to take in pointers to lists instead
+and then we can just pass the stack pointer to the list as the argument. The function body 
+will then need to dereference the pointer to get the actual list, and finally 
+we will need to store the list back to the stack pointer to avoid the stack pointer
+from pointing to the old list. think about it more. This is different to our 
+built-in functions like List_len, List_insert, etc. because those functions
+return a new list, so we need to store the new list back to the stack pointer.
+Now that I think about it, maybe we can just have all functions take in pointers
+to lists and then we can just pass the stack pointer to the list as the argument. This 
+will work for builtins too, but we will need to make sure that the builtins return 
+nothing (as specified in the LRM!)
+*)   
+      raise (TODO "unimplemented function calls in expr")
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1' = expr builder e1
