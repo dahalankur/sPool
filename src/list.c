@@ -11,10 +11,14 @@ typedef struct Node
     struct Node *next;
 } Node;
 
-int List_len(Node *l) 
+int List_len(Node **l) 
 {
+    if (!l || !*l) {
+        return 0;
+    }
+
     int len = 0;
-    Node *temp = l;
+    Node *temp = *l;
 
     while (temp != nullptr) {
         len++;
@@ -23,12 +27,16 @@ int List_len(Node *l)
     return len;
 }
 
-void *List_at(Node *l, int index)
+void *List_at(Node **l, int index)
 {
+    if (!l || !*l) {
+        return nullptr;
+    }
+    
     int len = List_len(l);
     assert((index >= 0) && (index < len));
 
-    Node *temp = l;
+    Node *temp = *l;
     for (int i = 0; i < index; i++) temp = temp->next;
     return temp->data;
 }
@@ -36,11 +44,12 @@ void *List_at(Node *l, int index)
 // data to be inserted should have already been
 // allocated on the heap by the time this function 
 // is called.
-Node *List_insert(Node *head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
+void List_insert(Node **head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
 {
+
     int len = List_len(head); assert((index >= 0) && (index <= len));
     
-    Node *curr = head;
+    Node *curr = *head;
     Node *prev = nullptr;
 
     for (int i = 0; i < index; i++) {
@@ -53,21 +62,23 @@ Node *List_insert(Node *head, int index, void *v) // TODO: deal with the returne
     if (prev == nullptr) { // adding to the head of the list
         node->data = v;
         node->next = curr;
-        return node;
+        *head = node;
     } else {
         prev->next = node;
         node->next = curr;
         node->data = v;
-        return head;
     }
-
-    return head; // suppress warnings
 }
 
 // for debugging -- TODO: add list_to_string in builtins?
-void List_int_print(Node *l)
+void List_int_print(Node **l)
 {
-    Node *t = l;
+    if (!l || !*l) {
+        printf("[]\n");
+        return;
+    }
+    
+    Node *t = *l;
     int i = 0;
     int len = List_len(l);
     printf("[ ");
@@ -86,18 +97,22 @@ int main()
     int *a = malloc(sizeof(a));
     int *b = malloc(sizeof(b));
     int *c = malloc(sizeof(c));
+    int *d = malloc(sizeof(d));
     
-    *a = 1; *b = 2; *c = 3;
+    *a = 1; *b = 2; *c = 3; *d = 4;
 
-    Node *l;
+    Node *l = nullptr; // our list....
     
-    l = List_insert(l, 0, a);
-    l = List_insert(l, 1, b); 
-    l = List_insert(l, 2, c);
+    List_insert(&l, 0, a);
+    List_insert(&l, 1, b); 
+    List_insert(&l, 2, c);
+    List_insert(&l, 0, d);
 
-    printf("%d\n", List_len(l));
+    printf("%d\n", List_len(&l));
     // printf("%d\n", *(int *)(List_at(l, 0)));
 
-    List_print(l);
+    List_int_print(&l);
 }
 #endif
+
+

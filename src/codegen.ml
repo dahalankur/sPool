@@ -166,13 +166,13 @@ let translate (SProgram(statements)) =
   let string_eq_t        = L.function_type i1_t [| string_t; string_t |] in
   let string_eq_func     = L.declare_function "string_eq" string_eq_t the_module in
 
-  let list_insert_t      = L.function_type list_t [| list_t; i32_t; voidptr_t |] in
+  let list_insert_t      = L.function_type quack_t [| (L.pointer_type list_t); i32_t; voidptr_t |] in
   let list_insert_func   = L.declare_function "List_insert" list_insert_t the_module in
 
-  let list_len_t        = L.function_type i32_t [| list_t |] in
+  let list_len_t        = L.function_type i32_t [| (L.pointer_type list_t) |] in
   let list_len_func     = L.declare_function "List_len" list_len_t the_module in
 
-  let list_int_print_t = L.function_type quack_t [| list_t |] in
+  let list_int_print_t = L.function_type quack_t [| (L.pointer_type list_t) |] in
   let list_int_print_func = L.declare_function "List_int_print" list_int_print_t the_module in
   (* ----- end of builtin function declarations ----- *)
 
@@ -235,7 +235,7 @@ let translate (SProgram(statements)) =
         let e' = expr builder e in 
         let _  = L.build_store e' (find_variable !env name) builder in builder
     | SDefine(s, typ, name, e) -> 
-        let e' = expr builder e in
+        let e' = expr builder e in (* TODO: different for lists and possibly mutexs *)
         let _  = add_to_scope (s, e', name) builder typ in builder
     | _ -> raise (TODO "unimplemented statements in statement")
   and build_malloc builder llval = 
@@ -246,20 +246,24 @@ let translate (SProgram(statements)) =
       SLiteral i -> L.const_int i32_t i
     | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
     | SFliteral l -> L.const_float_of_string float_t l
-    | SListLit l -> 
+    | SListLit l ->
       let llvals = List.map (expr builder) l in
       let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations for the llvals on the heap *)
-      let list_ptr = L.build_alloca list_t "list_ptr" builder in
-      let _ = L.build_store (L.const_null list_t) list_ptr builder in (* Node *l = NULL; *)
-      let list_ptr_val = L.build_load list_ptr "list_ptr" builder in
-      let acc_list = List.fold_left (fun list_ptr_val (i, llval) -> 
+      
+      
+      let list_ptr_out = L.build_alloca list_t "list_ptr" builder in (* Node *l; *)
+      let _ = L.build_store (L.const_null list_t) list_ptr_out builder in (* l = nullptr; *)
+      (* let list_ptr_val = L.build_load list_ptr "list_ptr" builder in *)
+      let _ = List.fold_left (fun list_ptr (i, llval) -> 
         (* cast each llval to a void * before inserting it into the list *)
         let void_cast = L.build_bitcast llval voidptr_t "voidptr" builder in
-        L.build_call list_insert_func [| list_ptr_val; L.const_int i32_t i; void_cast |] "list_insert" builder
-      ) list_ptr_val (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
-      let _ = L.build_store acc_list list_ptr builder in (* assign the generated list to the initially allocated stack pointer for the list *)
-      list_ptr (* return the stack address of the heap-allocated list *)
-    | SVar (s, name) -> L.build_load (find_variable !env name) name builder
+        L.build_call list_insert_func [| list_ptr_out; L.const_int i32_t i; void_cast |] "" builder
+      ) list_ptr_out (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
+      list_ptr_out (* return the stack address of the heap-allocated list *)
+    
+    
+    
+      | SVar (s, name) -> L.build_load (find_variable !env name) name builder
     | SNoexpr -> L.const_int i32_t 0
     | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
@@ -279,22 +283,12 @@ let translate (SProgram(statements)) =
          The second redirection is to get the actual list from the heap, which is the result of loading from the pointer to the heap-allocated list. TODO: in define, assign, svar, test cases for nested lists
       *)
       let listlit = expr builder e in
-      let listlit_val = L.build_load listlit "listlit" builder in (* get the list from the heap *)
-      L.build_call list_len_func [| listlit_val |] "List_len" builder
+      L.build_call list_len_func [| listlit |] "List_len" builder
     | SCall ("List_insert", [e1; e2; e3]) -> 
-      let listlit = expr builder e1 in
-      let listlit_val = L.build_load listlit "listlit" builder in
-      let index = expr builder e2 in
-      let llval = expr builder e3 in
-      let heap_ptr = build_malloc builder llval in
-      let void_cast = L.build_bitcast heap_ptr voidptr_t "voidptr" builder in
-      let new_list = L.build_call list_insert_func [| listlit_val; index; void_cast |] "List_insert" builder (* TODO: since List_insert returns nothing from the perspective of sPool program, we can only check this once we have svar, assign and define implemented for list variables *)
-      (* store the list back to the stack ptr to avoid the stack ptr from pointing to the old list *)
-      in L.build_store new_list listlit builder (* TODO: this step is critical whenever dealing with lists. the C functions will implicitly change the lists on the heap but now the stack ptr will need to be updated to point to the fresh memory address for the newly created list *)
+     raise (TODO "List_insert")
     | SCall ("List_int_print", [e]) -> (* function for debugging purposes *)
       let listlit = expr builder e in
-      let listlit_val = L.build_load listlit "listlit" builder in
-      L.build_call list_int_print_func [| listlit_val |] "" builder (* empty string because it is a void function *)
+      L.build_call list_int_print_func [| listlit |] "" builder (* empty string because it is a void function *)
     | SCall(f, args) -> 
       (* TODO: think about how lists are currently dealt with
 when passing them as arguments to functions, how do we ensure that 
