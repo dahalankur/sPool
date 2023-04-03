@@ -25,7 +25,7 @@ jobs:
       run: |
            opam init --yes
            opam install llvm --yes
-           eval $(opam config env)
+           eval $(opam config env) && rm -f *.o
            make -j -C src
       
     - name: Run lexer and scanner tests
