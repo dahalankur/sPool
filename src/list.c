@@ -27,7 +27,7 @@ int List_len(Node **l)
     return len;
 }
 
-void *List_at(Node **l, int index) // TODO: test this for nested lists.
+void *List_at(Node **l, int index) // TODO: test this for nested lists. tricky! maybe we check if we are dealing with a list or not in codegen and cast accordingly
 {
     if (!l || !*l) {
         return nullptr;
@@ -46,6 +46,7 @@ void *List_at(Node **l, int index) // TODO: test this for nested lists.
 // is called.
 void List_insert(Node **head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
 {
+
     int len = List_len(head); assert((index >= 0) && (index <= len));
     
     Node *curr = *head;
@@ -84,7 +85,7 @@ void List_remove(Node **head, int index)
         prev->next = curr->next;
     }
 
-    // free(curr);
+    free(curr);
 }
 
 // for debugging -- TODO: add list_to_string in builtins?

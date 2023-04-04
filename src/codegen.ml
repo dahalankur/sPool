@@ -85,7 +85,7 @@ let add_to_scope (s, v, n) builder t =
     let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
       in env := new_scope 
   else
-    if is_pointer t then 
+    if is_pointer t then (* this is for values that are passed by reference (aka raw pointers) *)
       let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let list  = L.build_load v n builder in
       let _     = L.build_store list local builder in
@@ -185,6 +185,9 @@ let translate (SProgram(statements)) =
 
   let list_remove_t       = L.function_type quack_t [| (L.pointer_type list_t); i32_t |] in
   let list_remove_func    = L.declare_function "List_remove" list_remove_t the_module in
+
+  let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
+  let list_at_func       = L.declare_function "List_at" list_at_t the_module in
   (* ----- end of builtin function declarations ----- *)
 
   (* TODO: handling shared vars note:
@@ -244,8 +247,14 @@ let translate (SProgram(statements)) =
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
     | SAssign (name, ((t, e) as sx)) -> 
         let e' = expr builder sx in 
-        let e' = if is_pointer t then L.build_load e' name builder else e' in
-        let _  = L.build_store e' (find_variable !env name) builder in builder (* different for lists and mutexes.. here we will only have to pass the pointer around from one stack ptr to another whiile assigning to a list *)
+        if is_pointer t then 
+          let heap_ptr = L.build_load e' name builder in
+          let new_listlit = L.build_load heap_ptr name builder in (* getting the actual list's heap address in new_listlit *)
+          (* TODO: test this!!! *)
+          let original_heap_ptr = L.build_load (find_variable !env name) name builder in (* this is the address of the named list variable *)
+          let _ = L.build_store new_listlit original_heap_ptr builder in builder (* updating it by reference! *)
+        else
+          let _  = L.build_store e' (find_variable !env name) builder in builder
     | SDefine(s, typ, name, e) -> 
         let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
@@ -304,6 +313,7 @@ let translate (SProgram(statements)) =
       let e' = expr builder e1 in
       let list = L.build_load e' "list" builder in
       L.build_call list_remove_func [| list; (expr builder e2) |] "" builder
+    | SCall ("List_at", [((List(t1), e) as e1); e2])           -> raise (TODO "List_at not implemented")
     | SCall (f, args) -> 
       
       (* TODO: think about how lists are currently dealt with
