@@ -16,12 +16,12 @@ def int String_find(string haystack, string needle):
 
     if (l1 < l2):
         answer = -1
-    else 
+    else
         int i = 0
         while (i < l1 - l2 + 1):
             if (String_eq(String_substr(haystack, i, i + l2), needle)):
                 answer = i
-                i = l1 - l2 + 1 # 'break' the loop
+                i = l1 - l2 + 1 # Hack: 'break' the loop
             else
                 i = i + 1;
         ;

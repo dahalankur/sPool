@@ -27,7 +27,7 @@ int List_len(Node **l)
     return len;
 }
 
-void *List_at(Node **l, int index)
+void *List_at(Node **l, int index) // TODO: test this for nested lists.
 {
     if (!l || !*l) {
         return nullptr;
@@ -46,8 +46,29 @@ void *List_at(Node **l, int index)
 // is called.
 void List_insert(Node **head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
 {
-
     int len = List_len(head); assert((index >= 0) && (index <= len));
+    
+    Node *curr = *head;
+    Node *prev = nullptr;
+    
+    for (int i = 0; i < index; i++) {
+        prev = curr;
+        curr = curr->next;
+    }
+
+    Node *node = malloc(sizeof(*node)); assert(node); 
+    node->data = v; node->next = curr;
+
+    if (prev == nullptr) { // adding to the head of the list
+        *head = node;
+    } else {
+        prev->next = node;
+    }
+}
+
+void List_remove(Node **head, int index)
+{
+    int len = List_len(head); assert((index >= 0) && (index < len));
     
     Node *curr = *head;
     Node *prev = nullptr;
@@ -57,17 +78,13 @@ void List_insert(Node **head, int index, void *v) // TODO: deal with the returne
         curr = curr->next;
     }
 
-    Node *node = malloc(sizeof(*node)); assert(node);
-
-    if (prev == nullptr) { // adding to the head of the list
-        node->data = v;
-        node->next = curr;
-        *head = node;
+    if (prev == nullptr) { // removing the head of the list
+        *head = curr->next;
     } else {
-        prev->next = node;
-        node->next = curr;
-        node->data = v;
+        prev->next = curr->next;
     }
+
+    // free(curr);
 }
 
 // for debugging -- TODO: add list_to_string in builtins?

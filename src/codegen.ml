@@ -27,8 +27,15 @@ let ltype_of_typ = function
 | A.Float   -> float_t
 | A.Quack   -> quack_t
 | A.String  -> string_t
-| A.List(_) -> list_t
-| _         -> raise (TODO "unimplemented ltype_of_typ")
+| A.List(_) -> list_t (* TODO: Test functions for nested lists.... should still work *)
+| _         -> raise (TODO "unimplemented ltype_of_typ for other types")
+
+let is_pointer = function 
+  A.List(_) -> true
+(* | A.Mutex   -> true *) (* TODO: uncomment when dealing with mutexes *)
+| _         -> false
+
+let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type list_t)))  (* TODO: add for mutex later *)
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
@@ -60,20 +67,15 @@ let add_to_scope (s, v, n) builder t =
     (* TODO: if we are adding a list to scope, we need not allocate
       memory on the heap because that will have already been done in the
     list_insert function for sliteral case. therefore, we can just store
-    the address of the list on the stack. I don't think we even have to generate 
-    any alloc or store instructions for a list, for the listlit case will have 
-    already done that. therefore, for lists, we only need to add the list to the 
-    scope and nothing else. there may be differences between using list literal instead of 
-    a variable in function calls, like List_insert([], 1, 2) vs. List_insert(l, 1, 2) 
-    where l is a list variable. we need to test this. essentially, we need to handle 
-    the case where we are passing a list to a function...it must be always 
-    the heap value that is passed, not the stack value. therefore, while 
-    generating code for args that are lists, we need to generate a build_load
-    instruction to get the heap value of the list. see List_insert call 
-    for an example of how to do this with lists.
+    the address of the list on the stack.
+    we need to allocate memory on the stack but the pointer to be stored there 
+    should be the pointer to the heap value of the list.
 
-    
-    need to handle this and mutex 
+    note: there may be differences between using list literal instead of 
+    a variable in function calls, like List_insert([], 1, 2) vs. List_insert(l, 1, 2) 
+    where l is a list variable. we need to test this.
+
+    tldr: need to handle this and mutex 
     case separately here! 
       *)
 
@@ -83,12 +85,19 @@ let add_to_scope (s, v, n) builder t =
     let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
       in env := new_scope 
   else
-    let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
-    let heap  = L.build_malloc (ltype_of_typ t) n builder in
-    let _     = L.build_store heap local builder in
-    let _     = L.build_store v heap builder in
-    let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
-      in env := new_scope
+    if is_pointer t then 
+      let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
+      let list  = L.build_load v n builder in
+      let _     = L.build_store list local builder in
+      let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+        in env := new_scope
+    else 
+      let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
+      let heap  = L.build_malloc (ltype_of_typ t) n builder in
+      let _     = L.build_store heap local builder in
+      let _     = L.build_store v heap builder in
+      let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+        in env := new_scope
 
 let push_scope () = 
   let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env)}
@@ -109,7 +118,6 @@ let translate (SProgram(statements)) =
   let str_format_str         = L.build_global_stringptr "%s"   "strfmt"        builder in
   let str_format_str_endline = L.build_global_stringptr "%s\n" "strfmtendline" builder in
   
-
   (* ----------- beginning of stack-related bookkeeping functions ----------- 
     
      These stack-related functions are only for bookkeeping purposes.
@@ -157,23 +165,26 @@ let translate (SProgram(statements)) =
   let strlen_t             = L.function_type i32_t [| string_t |] in
   let strlen_func          = L.declare_function "strlen" strlen_t the_module in
 
-  let string_concat_t     = L.function_type string_t [| string_t; string_t |] in
-  let string_concat_func  = L.declare_function "string_concat" string_concat_t the_module in
+  let string_concat_t      = L.function_type string_t [| string_t; string_t |] in
+  let string_concat_func   = L.declare_function "string_concat" string_concat_t the_module in
 
-  let string_substr_t     = L.function_type string_t [| string_t; i32_t; i32_t |] in
-  let string_substr_func  = L.declare_function "string_substr" string_substr_t the_module in
+  let string_substr_t      = L.function_type string_t [| string_t; i32_t; i32_t |] in
+  let string_substr_func   = L.declare_function "string_substr" string_substr_t the_module in
 
-  let string_eq_t        = L.function_type i1_t [| string_t; string_t |] in
-  let string_eq_func     = L.declare_function "string_eq" string_eq_t the_module in
+  let string_eq_t          = L.function_type i1_t [| string_t; string_t |] in
+  let string_eq_func       = L.declare_function "string_eq" string_eq_t the_module in
 
-  let list_insert_t      = L.function_type quack_t [| (L.pointer_type list_t); i32_t; voidptr_t |] in
-  let list_insert_func   = L.declare_function "List_insert" list_insert_t the_module in
+  let list_insert_t        = L.function_type quack_t [| (L.pointer_type list_t); i32_t; voidptr_t |] in
+  let list_insert_func     = L.declare_function "List_insert" list_insert_t the_module in
 
-  let list_len_t        = L.function_type i32_t [| (L.pointer_type list_t) |] in
-  let list_len_func     = L.declare_function "List_len" list_len_t the_module in
+  let list_len_t           = L.function_type i32_t [| (L.pointer_type list_t) |] in
+  let list_len_func        = L.declare_function "List_len" list_len_t the_module in
 
-  let list_int_print_t = L.function_type quack_t [| (L.pointer_type list_t) |] in
-  let list_int_print_func = L.declare_function "List_int_print" list_int_print_t the_module in
+  let list_int_print_t     = L.function_type quack_t [| (L.pointer_type list_t) |] in
+  let list_int_print_func  = L.declare_function "List_int_print" list_int_print_t the_module in
+
+  let list_remove_t       = L.function_type quack_t [| (L.pointer_type list_t); i32_t |] in
+  let list_remove_func    = L.declare_function "List_remove" list_remove_t the_module in
   (* ----- end of builtin function declarations ----- *)
 
   (* TODO: handling shared vars note:
@@ -217,6 +228,9 @@ let translate (SProgram(statements)) =
         
         let pred_bb           = L.append_block context "while" the_function in
         let _                 = L.build_br pred_bb builder in
+
+        let pred_builder      = L.builder_at_end context pred_bb in
+        let bool_val          = expr pred_builder predicate in
         
         let _ = push_scope() in
         
@@ -224,78 +238,81 @@ let translate (SProgram(statements)) =
             let while_builder = List.fold_left statement (L.builder_at_end context body_bb) body in
         let ()                = add_terminal while_builder (L.build_br pred_bb) in
 
-        let pred_builder      = L.builder_at_end context pred_bb in
-        let bool_val          = expr pred_builder predicate in
-
-        let _ = pop_scope() in (* TODO: test with a loop that has variable definitions inside of it.... it should be redefined every time *)
+        let _ = pop_scope() in
 
         let merge_bb          = L.append_block context "merge" the_function in
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
-    | SAssign (name, e) -> 
-        let e' = expr builder e in 
-        let _  = L.build_store e' (find_variable !env name) builder in builder
+    | SAssign (name, ((t, e) as sx)) -> 
+        let e' = expr builder sx in 
+        let e' = if is_pointer t then L.build_load e' name builder else e' in
+        let _  = L.build_store e' (find_variable !env name) builder in builder (* different for lists and mutexes.. here we will only have to pass the pointer around from one stack ptr to another whiile assigning to a list *)
     | SDefine(s, typ, name, e) -> 
-        let e' = expr builder e in (* TODO: different for lists and possibly mutexs *)
+        let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
-    | _ -> raise (TODO "unimplemented statements in statement")
+    | SReturn e -> raise (TODO "unimplemented return statement")
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
-      let _ = L.build_store llval heap builder in
+      let _    = L.build_store llval heap builder in
     heap
   and expr builder (t, e) = match e with 
-      SLiteral i -> L.const_int i32_t i
-    | SBoolLit b -> L.const_int i1_t (if b then 1 else 0)
+      SNoexpr     -> L.const_int i32_t 0
+    | SLiteral i  -> L.const_int i32_t i
+    | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
     | SFliteral l -> L.const_float_of_string float_t l
-    | SListLit l ->
+    | SListLit l  ->
       let llvals = List.map (expr builder) l in
       let malloced_ptrs = List.map (build_malloc builder) llvals in (* addresses of malloc'd locations for the llvals on the heap *)
-      
-      
-      let list_ptr_out = L.build_alloca list_t "list_ptr" builder in (* Node *l; *)
-      let _ = L.build_store (L.const_null list_t) list_ptr_out builder in (* l = nullptr; *)
-      (* let list_ptr_val = L.build_load list_ptr "list_ptr" builder in *)
-      let _ = List.fold_left (fun list_ptr (i, llval) -> 
+      let list_ptr = L.build_alloca (L.pointer_type list_t) "list_ptr" builder in      (*   Node **l;   *)
+      let head = L.build_malloc list_t "head" builder in
+      let _ = L.build_store head list_ptr builder in
+      let _ = L.build_store (L.const_null list_t) head builder in
+      let _ = List.fold_left (fun _ (i, llval) -> 
         (* cast each llval to a void * before inserting it into the list *)
         let void_cast = L.build_bitcast llval voidptr_t "voidptr" builder in
-        L.build_call list_insert_func [| list_ptr_out; L.const_int i32_t i; void_cast |] "" builder
-      ) list_ptr_out (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
-      list_ptr_out (* return the stack address of the heap-allocated list *)
-    
-    
-    
-      | SVar (s, name) -> L.build_load (find_variable !env name) name builder
-    | SNoexpr -> L.const_int i32_t 0
-    | SStringLiteral s -> L.build_global_stringptr s "strlit" builder
-    | SCall ("print", [e])   -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
-    | SCall ("println", [e]) -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
-    | SCall ("int_to_string", [e]) -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder
+        let heap = L.build_load list_ptr "heap" builder in
+        L.build_call list_insert_func [| heap; L.const_int i32_t i; void_cast |] "" builder
+      ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
+    list_ptr
+    | SVar (s, name)                 -> 
+      let llval = (find_variable !env name) in
+      if is_llval_pointer llval then llval else L.build_load llval name builder
+    | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
+    | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
+    | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
+    | SCall ("int_to_string", [e])   -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder
     | SCall ("float_to_string", [e]) -> L.build_call float_to_string_func [| (expr builder e) |] "float_to_string" builder
-    | SCall ("bool_to_string", [e]) -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder
-    | SCall ("int_to_float", [e]) -> L.build_call int_to_float_func [| (expr builder e) |] "int_to_float" builder
-    | SCall ("float_to_int", [e]) -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
-    | SCall ("String_eq", [e1; e2]) -> L.build_call string_eq_func [| (expr builder e1); (expr builder e2) |] "string_eq" builder
-    | SCall ("String_len", [e]) -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
-    | SCall ("String_concat", [e1; e2]) -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
+    | SCall ("bool_to_string", [e])  -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder
+    | SCall ("int_to_float", [e])    -> L.build_call int_to_float_func [| (expr builder e) |] "int_to_float" builder
+    | SCall ("float_to_int", [e])    -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
+    | SCall ("String_eq", [e1; e2])  -> L.build_call string_eq_func [| (expr builder e1); (expr builder e2) |] "string_eq" builder
+    | SCall ("String_len", [e])      -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
+    | SCall ("List_len", [e])        -> 
+      let e' = expr builder e in
+      let list = L.build_load e' "list" builder in
+      L.build_call list_len_func [| list |] "List_len" builder
+    | SCall ("List_int_print", [e])  -> 
+      let e' = expr builder e in
+      let list = L.build_load e' "list" builder in
+      L.build_call list_int_print_func [| list |] "" builder
+    | SCall ("String_concat", [e1; e2])     -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
-    | SCall ("List_len", [e]) -> 
-      (* Unlike other shared variables, lists and mutexes need two levels of indirection since they are passed by reference and their principal type is a pointer itself 
-         The first redirection is to get the pointer to the heap-allocated list from the stack, which should be the result of the SListLit case above
-         The second redirection is to get the actual list from the heap, which is the result of loading from the pointer to the heap-allocated list. TODO: in define, assign, svar, test cases for nested lists
-      *)
-      let listlit = expr builder e in
-      L.build_call list_len_func [| listlit |] "List_len" builder
-    | SCall ("List_insert", [e1; e2; e3]) -> 
-     raise (TODO "List_insert")
-    | SCall ("List_int_print", [e]) -> (* function for debugging purposes *)
-      let listlit = expr builder e in
-      L.build_call list_int_print_func [| listlit |] "" builder (* empty string because it is a void function *)
-    | SCall(f, args) -> 
+    | SCall ("List_insert", [e1; e2; e3])   -> 
+      let e' = expr builder e1 in
+      let list = L.build_load e' "list" builder in
+      L.build_call list_insert_func [| list; (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
+    | SCall ("List_remove", [e1; e2])       -> 
+      let e' = expr builder e1 in
+      let list = L.build_load e' "list" builder in
+      L.build_call list_remove_func [| list; (expr builder e2) |] "" builder
+    | SCall (f, args) -> 
+      
       (* TODO: think about how lists are currently dealt with
 when passing them as arguments to functions, how do we ensure that 
 they are always passed by reference?
 Maybe we need to convert all functions that take in lists to take in pointers to lists instead
-and then we can just pass the stack pointer to the list as the argument. The function body 
-will then need to dereference the pointer to get the actual list, and finally 
+and then we can just pass the stack pointer to the list as the argument (this works! future ankur approves.)
+
+The function body will then need to dereference the pointer to get the actual list, and finally 
 we will need to store the list back to the stack pointer to avoid the stack pointer
 from pointing to the old list. think about it more. This is different to our 
 built-in functions like List_len, List_insert, etc. because those functions
@@ -308,8 +325,8 @@ nothing (as specified in the LRM!)
       raise (TODO "unimplemented function calls in expr")
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
-      and e1' = expr builder e1
-      and e2' = expr builder e2 in
+      and e1'    = expr builder e1
+      and e2'    = expr builder e2 in
       if t = A.Float (* TODO: double check this matches our semantics for binops and unop from the LRM *)
       then (match op with 
         A.Add     -> L.build_fadd
@@ -340,7 +357,7 @@ nothing (as specified in the LRM!)
       | A.Greater -> L.build_icmp L.Icmp.Sgt
       | A.Geq     -> L.build_icmp L.Icmp.Sge
            ) e1' e2' "tmp" builder
-    | SUnop(op, e) ->
+    | SUnop (op, e) ->
       let (t, _) = e in
       let e' = expr builder e in
       (match op with
@@ -348,7 +365,8 @@ nothing (as specified in the LRM!)
         | A.Neg                  -> L.build_neg
         | A.Not                  -> L.build_not 
       ) e' "tmp" builder
-    | _ -> raise (TODO "unimplemented other expressions in expr")
+    | SThread body -> raise (TODO "unimplemented SThread")
+    | SLambda (store, retty, formals, body) -> raise (TODO "unimplemented SLambda")
   and build_function builder (store, retty, formals, body) = () (* TODO: raise (TODO "unimplemented build_function") *)
   and build_main_function builder statements =
     (* Note to self: at this point, final_builder is pointing to the END of the main function. 
@@ -363,8 +381,8 @@ nothing (as specified in the LRM!)
 
     let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold to get the updated builder after that statement's instruction! *)
     
-    (* End the main function's basic block with a terminal *)
-    let _ = terminate_block final_builder A.Int in
+    (* End the main function's basic block with a terminal, returning 0 *)
+    let _ = add_terminal final_builder (L.build_ret (L.const_int i32_t 0)) in
     
     (* Pop main_function definition from the curr_function stack *)
     let _ = pop_function () in
@@ -375,27 +393,18 @@ nothing (as specified in the LRM!)
     (match L.block_terminator (L.insertion_block builder) with
       Some _ -> ()
     | None -> ignore (instr builder))
-  and terminate_block builder retty = add_terminal builder (match retty with
-    A.Quack  -> L.build_ret_void
-  | A.Float  -> L.build_ret (L.const_float float_t 0.0)
-  | A.Int    -> L.build_ret (L.const_int i32_t 0)
-  | A.String -> L.build_ret (L.const_int i8_t 0) (* TODO: test and complete this later *)
-  | _ -> raise (TODO "unimplemented return types in terminate_block"))
 in
+
 (* We only have one top-level function, main. 
    All statements of the sPool program reside within main *)
 build_main_function builder statements;
 
-(* Ignore compiler warnings for the 'hello world' submission
-   TODO: remove this later
+(* Ignore compiler warnings...TODO: remove this later
 *)
-let _ = ltype_of_typ A.Quack in
 let _ = build_function builder (false, A.Quack, [], []) in
-let _ = voidptr_t in
-  
+
 (* Return the final module *)
 the_module
-
 
 (* Code generation: translate takes a semantically checked AST and
 produces LLVM IR
@@ -446,7 +455,7 @@ let translate (globals, functions) =
 
     (* Return the value for a variable or formal argument. First check
      * locals, then globals *)
-    let lookup n = try StringMap.find n local_vars
+    let lookup n = try StringMap.find n local_vars (TODO: for spool, look up in closure)
                    with Not_found -> StringMap.find n global_vars
     in
      
