@@ -242,6 +242,12 @@ let translate (SProgram(statements)) =
           let _ = L.build_store new_listlit original_heap_ptr builder in builder (* updating it by reference! *)
         else
           let _  = L.build_store e' (find_variable !env name) builder in builder
+    | SDefine(s, Arrow(formals, retty), name, e) ->
+      let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
+      let ftype = L.function_type (ltype_of_typ retty) formal_types in (* TODO: test for things that return lists *)
+      let f = L.define_function name ftype the_module in
+      let new_scope = {variables = StringMap.add name f !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+        in let _ = env := new_scope in builder
     | SDefine(s, typ, name, e) -> 
         let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
@@ -319,8 +325,15 @@ they are always passed by reference?
 
 Maybe we need to convert all functions that take in lists to take in pointers to lists instead
 and then we can just pass the stack pointer to the list as the argument. i think this works
-*)   
-      raise (TODO "unimplemented function calls in expr")
+*) 
+      let fdef = find_variable !env f in (* TODO: store llval, retty in fun definition *)
+      let retty = L.return_type (L.type_of fdef) in 
+      let llargs = (List.map (fun ((t, _) as e) -> if is_pointer t then 
+                          let e' = expr builder e in
+                          L.build_load e' "load" builder
+                        else expr builder e) args) in (* TODO: test handling of lists as arguments to general functions *)
+      let result = if retty = quack_t then "" else f ^ "_result" in (* TODO: getting unused case here, test if this works *)
+      L.build_call fdef (Array.of_list llargs) result builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -364,8 +377,8 @@ and then we can just pass the stack pointer to the list as the argument. i think
         | A.Not                  -> L.build_not 
       ) e' "tmp" builder
     | SThread body -> raise (TODO "unimplemented SThread")
-    | SLambda (store, retty, formals, body) -> raise (TODO "unimplemented SLambda")
-  and build_function builder (store, retty, formals, body) = () (* TODO: raise (TODO "unimplemented build_function") *)
+    | SLambda (store, retty, formals, body) ->  raise (TODO "unimplemented SLambda")
+        
   and build_main_function builder statements =
     (* Note to self: at this point, final_builder is pointing to the END of the main function. 
        The call to statement generates instructions for all statments in this main function, 
@@ -399,7 +412,6 @@ build_main_function builder statements;
 
 (* Ignore compiler warnings...TODO: remove this later
 *)
-let _ = build_function builder (false, A.Quack, [], []) in
 let _ = list_replace_func in 
 let _ = list_at_func in
 
