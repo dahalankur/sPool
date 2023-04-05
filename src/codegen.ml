@@ -63,22 +63,6 @@ let rec find_shared (scope : symbol_table) name =
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
 
 let add_to_scope (s, v, n) builder t =
-
-    (* TODO: if we are adding a list to scope, we need not allocate
-      memory on the heap because that will have already been done in the
-    list_insert function for sliteral case. therefore, we can just store
-    the address of the list on the stack.
-    we need to allocate memory on the stack but the pointer to be stored there 
-    should be the pointer to the heap value of the list.
-
-    note: there may be differences between using list literal instead of 
-    a variable in function calls, like List_insert([], 1, 2) vs. List_insert(l, 1, 2) 
-    where l is a list variable. we need to test this.
-
-    tldr: need to handle this and mutex 
-    case separately here! 
-      *)
-
   if not s then
     let local = L.build_alloca (ltype_of_typ t) n builder in
     let _     = L.build_store v local builder in
@@ -186,6 +170,9 @@ let translate (SProgram(statements)) =
   let list_remove_t       = L.function_type quack_t [| (L.pointer_type list_t); i32_t |] in
   let list_remove_func    = L.declare_function "List_remove" list_remove_t the_module in
 
+  let list_replace_t     = L.function_type quack_t [| (L.pointer_type list_t); i32_t; voidptr_t |] in
+  let list_replace_func  = L.declare_function "List_replace" list_replace_t the_module in
+
   let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
   (* ----- end of builtin function declarations ----- *)
@@ -245,13 +232,13 @@ let translate (SProgram(statements)) =
 
         let merge_bb          = L.append_block context "merge" the_function in
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
-    | SAssign (name, ((t, e) as sx)) -> 
+    | SAssign (name, ((t, _) as sx)) -> 
         let e' = expr builder sx in 
         if is_pointer t then 
           let heap_ptr = L.build_load e' name builder in
           let new_listlit = L.build_load heap_ptr name builder in (* getting the actual list's heap address in new_listlit *)
           (* TODO: test this!!! *)
-          let original_heap_ptr = L.build_load (find_variable !env name) name builder in (* this is the address of the named list variable *)
+          let original_heap_ptr = L.build_load (find_variable !env name) name builder in (* this is the address of the named list variable on the LHS *)
           let _ = L.build_store new_listlit original_heap_ptr builder in builder (* updating it by reference! *)
         else
           let _  = L.build_store e' (find_variable !env name) builder in builder
@@ -278,10 +265,9 @@ let translate (SProgram(statements)) =
       let _ = List.fold_left (fun _ (i, llval) -> 
         (* cast each llval to a void * before inserting it into the list *)
         let void_cast = L.build_bitcast llval voidptr_t "voidptr" builder in
-        let heap = L.build_load list_ptr "heap" builder in
-        L.build_call list_insert_func [| heap; L.const_int i32_t i; void_cast |] "" builder
-      ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in
-    list_ptr
+        let listval = L.build_load list_ptr "listval" builder in
+        L.build_call list_insert_func [| listval; L.const_int i32_t i; void_cast |] "" builder
+      ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in list_ptr
     | SVar (s, name)                 -> 
       let llval = (find_variable !env name) in
       if is_llval_pointer llval then llval else L.build_load llval name builder
@@ -313,24 +299,26 @@ let translate (SProgram(statements)) =
       let e' = expr builder e1 in
       let list = L.build_load e' "list" builder in
       L.build_call list_remove_func [| list; (expr builder e2) |] "" builder
-    | SCall ("List_at", [((List(t1), e) as e1); e2])           -> raise (TODO "List_at not implemented")
+    | SCall ("List_replace", [e1; e2; e3])  ->
+      let e' = expr builder e1 in 
+      let list = L.build_load e' "listval" builder in 
+      L.build_call list_replace_func [| list; (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
+    | SCall ("List_at", [((List(t1), _) as e1); e2]) ->
+      let e' = expr builder e1 in 
+      let list = L.build_load e' "listval" builder in
+      let value = L.build_call list_at_func [| list; (expr builder e2) |] "list_at" builder in
+      let cast = 
+        if is_pointer t1 then 
+          L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder
+        else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
+      L.build_load cast "list_at" builder
     | SCall (f, args) -> 
-      
       (* TODO: think about how lists are currently dealt with
 when passing them as arguments to functions, how do we ensure that 
 they are always passed by reference?
-Maybe we need to convert all functions that take in lists to take in pointers to lists instead
-and then we can just pass the stack pointer to the list as the argument (this works! future ankur approves.)
 
-The function body will then need to dereference the pointer to get the actual list, and finally 
-we will need to store the list back to the stack pointer to avoid the stack pointer
-from pointing to the old list. think about it more. This is different to our 
-built-in functions like List_len, List_insert, etc. because those functions
-return a new list, so we need to store the new list back to the stack pointer.
-Now that I think about it, maybe we can just have all functions take in pointers
-to lists and then we can just pass the stack pointer to the list as the argument. This 
-will work for builtins too, but we will need to make sure that the builtins return 
-nothing (as specified in the LRM!)
+Maybe we need to convert all functions that take in lists to take in pointers to lists instead
+and then we can just pass the stack pointer to the list as the argument. i think this works
 *)   
       raise (TODO "unimplemented function calls in expr")
     | SBinop (e1, op, e2) ->
@@ -412,6 +400,8 @@ build_main_function builder statements;
 (* Ignore compiler warnings...TODO: remove this later
 *)
 let _ = build_function builder (false, A.Quack, [], []) in
+let _ = list_replace_func in 
+let _ = list_at_func in
 
 (* Return the final module *)
 the_module

@@ -27,7 +27,7 @@ int List_len(Node **l)
     return len;
 }
 
-void *List_at(Node **l, int index) // TODO: test this for nested lists. tricky! maybe we check if we are dealing with a list or not in codegen and cast accordingly
+void *List_at(Node **l, int index)
 {
     if (!l || !*l) {
         return nullptr;
@@ -44,13 +44,12 @@ void *List_at(Node **l, int index) // TODO: test this for nested lists. tricky! 
 // data to be inserted should have already been
 // allocated on the heap by the time this function 
 // is called.
-void List_insert(Node **head, int index, void *v) // TODO: deal with the returned list in codegen; do not make this transparent to the caller
+void List_insert(Node **head, int index, void *v)
 {
 
     int len = List_len(head); assert((index >= 0) && (index <= len));
     
-    Node *curr = *head;
-    Node *prev = nullptr;
+    Node *curr = *head; Node *prev = nullptr;
     
     for (int i = 0; i < index; i++) {
         prev = curr;
@@ -71,8 +70,7 @@ void List_remove(Node **head, int index)
 {
     int len = List_len(head); assert((index >= 0) && (index < len));
     
-    Node *curr = *head;
-    Node *prev = nullptr;
+    Node *curr = *head; Node *prev = nullptr;
 
     for (int i = 0; i < index; i++) {
         prev = curr;
@@ -86,6 +84,12 @@ void List_remove(Node **head, int index)
     }
 
     free(curr);
+}
+
+void List_replace(Node **head, int index, void *v)
+{
+    List_remove(head, index);
+    List_insert(head, index, v);
 }
 
 // for debugging -- TODO: add list_to_string in builtins?
@@ -127,8 +131,10 @@ int main()
     List_insert(&l, 0, d);
 
     printf("%d\n", List_len(&l));
-    // printf("%d\n", *(int *)(List_at(l, 0)));
+    List_int_print(&l);
 
+    List_replace(&l, 0, a);
+    List_replace(&l, 3, b);
     List_int_print(&l);
 }
 #endif
