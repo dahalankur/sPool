@@ -62,6 +62,8 @@ let rec find_shared (scope : symbol_table) name =
 (* initial env *)
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
 
+let anon_counter = ref 1
+
 let add_to_scope (s, v, n) builder t =
   if not s then
     let local = L.build_alloca (ltype_of_typ t) n builder in
@@ -175,6 +177,7 @@ let translate (SProgram(statements)) =
 
   let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
+
   (* ----- end of builtin function declarations ----- *)
 
   (* TODO: handling shared vars note:
@@ -237,21 +240,26 @@ let translate (SProgram(statements)) =
         if is_pointer t then 
           let heap_ptr = L.build_load e' name builder in
           let new_listlit = L.build_load heap_ptr name builder in (* getting the actual list's heap address in new_listlit *)
-          (* TODO: test this!!! *)
           let original_heap_ptr = L.build_load (find_variable !env name) name builder in (* this is the address of the named list variable on the LHS *)
-          let _ = L.build_store new_listlit original_heap_ptr builder in builder (* updating it by reference! *)
+          let _ = L.build_store new_listlit original_heap_ptr builder in builder
         else
-          let _  = L.build_store e' (find_variable !env name) builder in builder
-    | SDefine(s, Arrow(formals, retty), name, e) ->
+          let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
+    | SDefine(s, Arrow(formals, retty), name, (_, e)) ->
       let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
-      let ftype = L.function_type (ltype_of_typ retty) formal_types in (* TODO: test for things that return lists *)
+      let ret_llval = if is_pointer retty then (L.pointer_type (L.pointer_type (ltype_of_typ retty))) else ltype_of_typ retty in
+      let ftype = L.function_type ret_llval formal_types in
       let f = L.define_function name ftype the_module in
       let new_scope = {variables = StringMap.add name f !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
-        in let _ = env := new_scope in builder
+        in let _ = env := new_scope in build_named_function name builder e
     | SDefine(s, typ, name, e) -> 
         let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
-    | SReturn e -> raise (TODO "unimplemented return statement")
+    | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
+    | SReturn ((t, _) as e) when is_pointer t -> (* TODO: check for lists*)
+      let e' = expr builder e in
+      (* let heap_ptr = L.build_load e' "heap_ptr" builder in *)
+      let _ = L.build_ret e' builder in builder
+    | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
       let _    = L.build_store llval heap builder in
@@ -319,21 +327,11 @@ let translate (SProgram(statements)) =
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
       L.build_load cast "list_at" builder
     | SCall (f, args) -> 
-      (* TODO: think about how lists are currently dealt with
-when passing them as arguments to functions, how do we ensure that 
-they are always passed by reference?
-
-Maybe we need to convert all functions that take in lists to take in pointers to lists instead
-and then we can just pass the stack pointer to the list as the argument. i think this works
-*) 
-      let fdef = find_variable !env f in (* TODO: store llval, retty in fun definition *)
-      let retty = L.return_type (L.type_of fdef) in 
-      let llargs = (List.map (fun ((t, _) as e) -> if is_pointer t then 
-                          let e' = expr builder e in
-                          L.build_load e' "load" builder
-                        else expr builder e) args) in (* TODO: test handling of lists as arguments to general functions *)
-      let result = if retty = quack_t then "" else f ^ "_result" in (* TODO: getting unused case here, test if this works *)
-      L.build_call fdef (Array.of_list llargs) result builder
+      (* TODO: deal with store here. If f has already been called with these args, generate instructions to atomically look into the store for the cached answer *)
+      let fdef   = find_variable !env f in
+      let retty  = L.return_type (L.element_type (L.type_of fdef)) in
+      let llargs = (List.map (fun ((t, _) as e) -> if is_pointer t then L.build_load (expr builder e) "ptrval" builder else expr builder e) args) in
+      let result = if retty = quack_t then "" else f ^ "_result" in L.build_call fdef (Array.of_list llargs) result builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -377,8 +375,61 @@ and then we can just pass the stack pointer to the list as the argument. i think
         | A.Not                  -> L.build_not 
       ) e' "tmp" builder
     | SThread body -> raise (TODO "unimplemented SThread")
-    | SLambda (store, retty, formals, body) ->  raise (TODO "unimplemented SLambda")
-        
+    | (SLambda (store, retty, formals, body)) as e -> 
+      let typ = A.Arrow((List.map fst formals), retty) in
+      let name = generate_name () in
+      let def = SDefine(store, typ, name, (typ, e)) in
+      let _ = statement builder def in
+      find_variable !env name (* TODO: this is just for returning an llvalue, check later *)
+   
+      (* TODO: how do we differentiate standalone anonymous lambdas from named functions once we enter here? 
+      IDEA: have a function called build_named_function that is called from Define when we have a named function and then have a function called build_anonymous_function that is called from here when we have an anonymous function.     
+      this should take care of the problem of having to deal with named functions and anonymous functions in the same place. *)
+
+      (* TODO: maybe we have a separate stringmap for functions that store the "store" info which is then looked at during the scall call...if this is true then we generate instructions to look into the store otherwise we proceed with the call and store the value to our store. *)
+      (* TODO: deal with store later here....maybe we don't need to do anything here, only deal with it during SCall? *)    
+
+  (* TODO: remember to deal with scopes, function stack bookkeeping, the_function thingy, etc. Return a builder after building the function *)
+  and generate_name () = 
+    let name = "#anon_" ^ (string_of_int !anon_counter) in
+    let _ = anon_counter := !anon_counter + 1 in
+    name
+
+  and add_params_to_scope (s, p, n) builder t = 
+  if is_pointer t then 
+    let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) "list_local_ptr" builder in
+    
+    (* let heap_ptr = L.build_load p n builder in *)
+    let new_listlit = L.build_load p n builder in
+    let original_heap_ptr = L.build_load local n builder in
+    let _ = L.build_store new_listlit original_heap_ptr builder in
+    let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+      in env := new_scope
+  else 
+    let _ = add_to_scope (s, p, n) builder t in ()
+
+    
+  and build_named_function name builder = function
+    SLambda (store, retty, formals, body) ->
+      let fdef = find_variable !env name in
+      let _ = push_function fdef in
+      let _ = push_scope () in
+
+      let fun_builder = L.builder_at_end context (L.entry_block fdef) in
+
+      (* add params to scope *)
+      let _ = List.iter2 (fun (t, n) p -> 
+        let () = L.set_value_name n p in
+        let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
+        let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in 
+
+      let final_builder = List.fold_left statement fun_builder body in
+      let _ = add_terminal final_builder (L.build_ret (L.const_int i32_t 0)) in
+
+      let _ = pop_scope () in
+      let _ = pop_function () in builder
+    | _ -> raise (Failure "Internal Error: build_named_function called with non-lambda expression")
+  
   and build_main_function builder statements =
     (* Note to self: at this point, final_builder is pointing to the END of the main function. 
        The call to statement generates instructions for all statments in this main function, 
@@ -410,85 +461,5 @@ in
    All statements of the sPool program reside within main *)
 build_main_function builder statements;
 
-(* Ignore compiler warnings...TODO: remove this later
-*)
-let _ = list_replace_func in 
-let _ = list_at_func in
-
 (* Return the final module *)
 the_module
-
-(* Code generation: translate takes a semantically checked AST and
-produces LLVM IR
-
-let translate (globals, functions) =
-
-  (* Define each function (arguments and return type) so we can 
-   * define it's body and call it later *)
-  let function_decls : (L.llvalue * sfunc_decl) StringMap.t =
-    let function_decl m fdecl =
-      let name = fdecl.sfname
-      and formal_types = 
-	Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.sformals)
-      in let ftype = L.function_type (ltype_of_typ fdecl.styp) formal_types in
-      StringMap.add name (L.define_function name ftype the_module, fdecl) m in
-    List.fold_left function_decl StringMap.empty functions in
-  
-  (* Fill in the body of the given function *)
-  let build_function_body fdecl =
-    let (the_function, _) = StringMap.find fdecl.sfname function_decls in
-    let builder = L.builder_at_end context (L.entry_block the_function) in
-
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder
-    and float_format_str = L.build_global_stringptr "%g\n" "fmt" builder in
-
-    (* Construct the function's "locals": formal arguments and locally
-       declared variables.  Allocate each on the stack, initialize their
-       value, if appropriate, and remember their values in the "locals" map *)
-    let local_vars =
-      let add_formal m (t, n) p = 
-        let () = L.set_value_name n p in
-	let local = L.build_alloca (ltype_of_typ t) n builder in
-        let _  = L.build_store p local builder in
-	StringMap.add n local m 
-      in
-
-      (* Allocate space for any locally declared variables and add the
-       * resulting registers to our map *)
-      let add_local m (t, n) =
-	let local_var = L.build_alloca (ltype_of_typ t) n builder
-	in StringMap.add n local_var m 
-      in
-
-      let formals = List.fold_left2 add_formal StringMap.empty fdecl.sformals
-          (Array.to_list (L.params the_function)) in
-      List.fold_left add_local formals fdecl.slocals 
-    in
-
-    (* Return the value for a variable or formal argument. First check
-     * locals, then globals *)
-    let lookup n = try StringMap.find n local_vars (TODO: for spool, look up in closure)
-                   with Not_found -> StringMap.find n global_vars
-    in
-     
-      | SCall (f, args) ->
-         let (fdef, fdecl) = StringMap.find f function_decls in
-	 let llargs = List.rev (List.map (expr builder) (List.rev args)) in
-	 let result = (match fdecl.styp with 
-                        A.Void -> ""
-                      | _ -> f ^ "_result") in
-         L.build_call fdef (Array.of_list llargs) result builder
-    in
-    
-	
-    let rec stmt builder = function
-
-      | SReturn e -> let _ = match fdecl.styp with
-                              (* Special "return nothing" instr *)
-                              A.Void -> L.build_ret_void builder 
-                              (* Build return statement *)
-                            | _ -> L.build_ret (expr builder e) builder 
-                     in builder
-      
-  List.iter build_function_body functions;
-  the_module *)
