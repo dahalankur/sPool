@@ -397,10 +397,7 @@ let translate (SProgram(statements)) =
       let name = generate_name () in
       let def = SDefine(store, typ, name, (typ, e)) in
       let _ = statement builder def in
-      find_variable !env name (* TODO: this is just for returning an llvalue, check later *)
-
-      (* TODO: maybe we have a separate stringmap for functions that store the "store" info which is then looked at during the scall call...if this is true then we generate instructions to look into the store otherwise we proceed with the call and store the value to our store. *)
-      (* TODO: deal with store later here....maybe we don't need to do anything here, only deal with it during SCall? *)    
+      find_variable !env name
   and generate_name () = 
     let name = "#anon_" ^ (string_of_int !anon_counter) in
     let _ = anon_counter := !anon_counter + 1 in
