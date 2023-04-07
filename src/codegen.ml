@@ -287,6 +287,7 @@ let translate (SProgram(statements)) =
     | SVar (s, name)                 -> 
       let llval = (find_variable !env name) in
       if is_llval_pointer llval then llval else L.build_load llval name builder
+      (* TODO: handle functions differently here *)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str; (expr builder e) |] "print" builder
     | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline; (expr builder e) |] "println" builder
@@ -430,7 +431,8 @@ let translate (SProgram(statements)) =
 
       (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
-      let _ = add_terminal final_builder (L.build_ret (L.const_int i32_t 0)) in
+      let instr = if retty = A.Quack then L.build_ret_void else L.build_ret (L.const_int i32_t 0) in
+      let _ = add_terminal final_builder instr in
       
       let _ = pop_scope () in
       let _ = pop_function () in init_builder
