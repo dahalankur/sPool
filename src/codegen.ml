@@ -247,6 +247,7 @@ let translate (SProgram(statements)) =
           let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
     | SDefine(s, Arrow(formals, retty), name, (_, e)) ->
       let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
+      let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
       let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
       let ftype = L.function_type ret_llval formal_types in
       let f = L.define_function name ftype the_module in
@@ -258,8 +259,8 @@ let translate (SProgram(statements)) =
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
     | SReturn ((t, _) as e) when is_pointer t ->
       let e' = expr builder e in
-      let heap_ptr = L.build_load e' "listval" builder in
-      let _ = L.build_ret heap_ptr builder in builder
+      let listval = L.build_load e' "listval" builder in
+      let _ = L.build_ret listval builder in builder
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
@@ -396,15 +397,9 @@ let translate (SProgram(statements)) =
       let def = SDefine(store, typ, name, (typ, e)) in
       let _ = statement builder def in
       find_variable !env name (* TODO: this is just for returning an llvalue, check later *)
-   
-      (* TODO: how do we differentiate standalone anonymous lambdas from named functions once we enter here? 
-      IDEA: have a function called build_named_function that is called from Define when we have a named function and then have a function called build_anonymous_function that is called from here when we have an anonymous function.     
-      this should take care of the problem of having to deal with named functions and anonymous functions in the same place. *)
 
       (* TODO: maybe we have a separate stringmap for functions that store the "store" info which is then looked at during the scall call...if this is true then we generate instructions to look into the store otherwise we proceed with the call and store the value to our store. *)
       (* TODO: deal with store later here....maybe we don't need to do anything here, only deal with it during SCall? *)    
-
-  (* TODO: remember to deal with scopes, function stack bookkeeping, the_function thingy, etc. Return a builder after building the function *)
   and generate_name () = 
     let name = "#anon_" ^ (string_of_int !anon_counter) in
     let _ = anon_counter := !anon_counter + 1 in
@@ -417,7 +412,7 @@ let translate (SProgram(statements)) =
       in env := new_scope
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
-  and build_named_function name builder = function
+  and build_named_function name init_builder = function
     SLambda (store, retty, formals, body) ->
       let fdef = find_variable !env name in
       let _ = push_function fdef in
@@ -425,17 +420,20 @@ let translate (SProgram(statements)) =
 
       let fun_builder = L.builder_at_end context (L.entry_block fdef) in
 
-      (* add params to scope *)
-      let _ = List.iter2 (fun (t, n) p -> 
-        let () = L.set_value_name n p in
-        let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
-        let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in 
+      if List.length formals > 0 then
+        (* add params to scope *)
+        let _ = List.iter2 (fun (t, n) p -> 
+          let () = L.set_value_name n p in
+          let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
+          let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in ()
+      else ();
 
+      (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
       let _ = add_terminal final_builder (L.build_ret (L.const_int i32_t 0)) in
-
+      
       let _ = pop_scope () in
-      let _ = pop_function () in builder
+      let _ = pop_function () in init_builder
     | _ -> raise (Failure "Internal Error: build_named_function called with non-lambda expression")
   
   and build_main_function builder statements =
