@@ -101,6 +101,7 @@ let translate (SProgram(statements)) =
   let main_t                 = L.function_type i32_t [|  |] in
   let main_function          = L.define_function "main" main_t the_module in
   let builder                = L.builder_at_end context (L.entry_block main_function) in
+
   let str_format_str         = L.build_global_stringptr "%s"   "strfmt"        builder in
   let str_format_str_endline = L.build_global_stringptr "%s\n" "strfmtendline" builder in
   
@@ -246,7 +247,7 @@ let translate (SProgram(statements)) =
           let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
     | SDefine(s, Arrow(formals, retty), name, (_, e)) ->
       let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
-      let ret_llval = if is_pointer retty then (L.pointer_type (L.pointer_type (ltype_of_typ retty))) else ltype_of_typ retty in
+      let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
       let ftype = L.function_type ret_llval formal_types in
       let f = L.define_function name ftype the_module in
       let new_scope = {variables = StringMap.add name f !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
@@ -255,10 +256,10 @@ let translate (SProgram(statements)) =
         let e' = expr builder e in
         let _  = add_to_scope (s, e', name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
-    | SReturn ((t, _) as e) when is_pointer t -> (* TODO: check for lists*)
+    | SReturn ((t, _) as e) when is_pointer t ->
       let e' = expr builder e in
-      (* let heap_ptr = L.build_load e' "heap_ptr" builder in *)
-      let _ = L.build_ret e' builder in builder
+      let heap_ptr = L.build_load e' "listval" builder in
+      let _ = L.build_ret heap_ptr builder in builder
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
@@ -286,8 +287,8 @@ let translate (SProgram(statements)) =
       let llval = (find_variable !env name) in
       if is_llval_pointer llval then llval else L.build_load llval name builder
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
-    | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str ; (expr builder e) |] "printf" builder
-    | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline ; (expr builder e) |] "printf" builder
+    | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str; (expr builder e) |] "print" builder
+    | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline; (expr builder e) |] "println" builder
     | SCall ("int_to_string", [e])   -> L.build_call int_to_string_func [| (expr builder e) |] "int_to_string" builder
     | SCall ("float_to_string", [e]) -> L.build_call float_to_string_func [| (expr builder e) |] "float_to_string" builder
     | SCall ("bool_to_string", [e])  -> L.build_call bool_to_string_func [| (expr builder e) |] "bool_to_string" builder
@@ -331,7 +332,21 @@ let translate (SProgram(statements)) =
       let fdef   = find_variable !env f in
       let retty  = L.return_type (L.element_type (L.type_of fdef)) in
       let llargs = (List.map (fun ((t, _) as e) -> if is_pointer t then L.build_load (expr builder e) "ptrval" builder else expr builder e) args) in
-      let result = if retty = quack_t then "" else f ^ "_result" in L.build_call fdef (Array.of_list llargs) result builder
+      let result = if retty = quack_t then "" else f ^ "_result" in 
+      if retty = L.pointer_type list_t then 
+        (* special case when lists are being returned from functions *)
+        let listptr = L.build_alloca (L.pointer_type list_t) "listptr" builder in
+        let head = L.build_malloc list_t "head" builder in
+        let _ = L.build_store head listptr builder in
+        let _ = L.build_store (L.const_null list_t) head builder in
+
+        let heap_ptr = L.build_call fdef (Array.of_list llargs) result builder in 
+        let new_listlit = L.build_load heap_ptr result builder in
+
+        let _ = L.build_store new_listlit head builder in
+        listptr
+      else
+        L.build_call fdef (Array.of_list llargs) result builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -394,21 +409,14 @@ let translate (SProgram(statements)) =
     let name = "#anon_" ^ (string_of_int !anon_counter) in
     let _ = anon_counter := !anon_counter + 1 in
     name
-
   and add_params_to_scope (s, p, n) builder t = 
   if is_pointer t then 
-    let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) "list_local_ptr" builder in
-    
-    (* let heap_ptr = L.build_load p n builder in *)
-    let new_listlit = L.build_load p n builder in
-    let original_heap_ptr = L.build_load local n builder in
-    let _ = L.build_store new_listlit original_heap_ptr builder in
-    let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+    let list_ptr = L.build_alloca (L.pointer_type (ltype_of_typ t)) "formal_listptr" builder in
+    let _ = L.build_store p list_ptr builder in
+    let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
       in env := new_scope
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
-
-    
   and build_named_function name builder = function
     SLambda (store, retty, formals, body) ->
       let fdef = find_variable !env name in
