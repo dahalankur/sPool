@@ -242,9 +242,9 @@ let check (Program(statements)) =
               | Mod                        when t1 = Int                 -> Int
               | And | Or                   when t1 = Bool                -> Bool
               | Geq | Greater | Leq | Less when (t1 = Int || t1 = Float) -> Bool
-              | Neq | Equal                when (t1 = Int || t1 = Bool || t1 = String || t1 = Float) -> Bool (* TODO: do not allow == and != on strings! Mention this in LRM as well, for we are using C-style strings. We need to have a builtin called String_eq that explicitly compares strings and not just the pointers *)
+              | Neq | Equal                when (t1 = Int || t1 = Bool || t1 = Float) -> Bool
               | _ -> raise (TypeError ("illegal binary operator " ^ string_of_op op ^ " between types " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr))
-            in (ty, SBinop(sexpr1, op, sexpr2))) (* TODO: update LRM about illegal == and != between strings *)
+            in (ty, SBinop(sexpr1, op, sexpr2)))
     | Lambda(store, t, formals, statements) -> 
         let count_return s = 
           let rec count_return' s acc = match s with
