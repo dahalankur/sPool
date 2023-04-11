@@ -7,7 +7,9 @@
 module L = Llvm
 module A = Ast
 module S = Stack
-open Sast 
+open Sast
+
+(* TODO: at the end, enable the warning flags from microC and ensure there are no such warnings *)
 
 module StringMap = Map.Make(String)
 
