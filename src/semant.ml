@@ -258,7 +258,7 @@ let check (Program(statements)) =
           if not (num_returns = 1) then raise (SemanticError ("Function body must have exactly 1 return statement, not " ^ string_of_int num_returns)) else 
         let is_shared t = match t with Mutex | List(_) -> true | _ -> false in (* only lists and mutexes are pointers; they are allocated on the heap TODO: what about strings? try writing functions that take in strings and see if it works in codegen *)
         let _ = push_scope () in
-        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal parameters are marked as shared... *)
+        let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal PARAMETERS are marked as shared. that means whenever a function is called with arg as a shared var, it will behave as unshared inside that function except lists and mutexes ...this is different to shared vars captured in closures *)
         (* check whether return statement is the last statement in function body *)
         let rec check_body xs acc = match xs with       
             [Return(e)] -> let (t', se) as sx = check_expr e in

@@ -19,7 +19,9 @@ and float_t    = L.double_type context (* TODO: also update this info in LRM abo
 and quack_t    = L.void_type   context 
 and string_t   = L.pointer_type (L.i8_type context) 
 and voidptr_t  = L.pointer_type (L.i8_type context)
-and list_t     = L.pointer_type (L.struct_type context [| L.pointer_type (L.i8_type context); L.pointer_type (L.named_struct_type context "Node") |])
+and nodeptr_t  = L.pointer_type (L.named_struct_type context "Node") 
+
+let list_t     = L.pointer_type (L.struct_type context [| voidptr_t; nodeptr_t |])
 
 let ltype_of_typ = function
   A.Int     -> i32_t
@@ -27,7 +29,7 @@ let ltype_of_typ = function
 | A.Float   -> float_t
 | A.Quack   -> quack_t
 | A.String  -> string_t
-| A.List(_) -> list_t (* TODO: Test functions for nested lists.... should still work *)
+| A.List(_) -> list_t
 | _         -> raise (TODO "unimplemented ltype_of_typ for other types")
 
 let is_pointer = function 
@@ -77,7 +79,7 @@ let add_to_scope (s, v, n) builder t =
       let _     = L.build_store list local builder in
       let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
         in env := new_scope
-    else 
+    else
       let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let heap  = L.build_malloc (ltype_of_typ t) n builder in
       let _     = L.build_store heap local builder in
@@ -144,10 +146,10 @@ let translate (SProgram(statements)) =
   let bool_to_string_func  = L.declare_function "bool_to_string" bool_to_string_t the_module in
 
   let int_to_float_t       = L.function_type float_t [| i32_t |] in
-  let int_to_float_func    = L.declare_function "int_to_float" int_to_float_t the_module in (* TODO: in lrm, talk about how types are being cast and what precision/accuracy can be lost *)
+  let int_to_float_func    = L.declare_function "int_to_float" int_to_float_t the_module in
 
   let float_to_int_t       = L.function_type i32_t [| float_t |] in
-  let float_to_int_func    = L.declare_function "float_to_int" float_to_int_t the_module in (* TODO: in lrm, talk about how types are being cast and what precision/accuracy can be lost *)
+  let float_to_int_func    = L.declare_function "float_to_int" float_to_int_t the_module in
 
   let strlen_t             = L.function_type i32_t [| string_t |] in
   let strlen_func          = L.declare_function "strlen" strlen_t the_module in
@@ -180,16 +182,6 @@ let translate (SProgram(statements)) =
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
 
   (* ----- end of builtin function declarations ----- *)
-
-  (* TODO: handling shared vars note:
-    for shared variables passed to functions as arguments, we need to first evaluate the variable and then pass it to the function
-    to maintain our convention of pass-by-value for all nonlists and nonmutexes.
-    
-    For lists and mutexes, however, this is not the case. They are shared by default, so their addresses are passed in when calling 
-    functions! This means that we need to pass the address of the variable to the function, not the value of the variable.
-
-    SHARED VARIABLES ARE DECLARED ON THE HEAP! 
-  *)
 
   let rec statement builder = function
       SExpr e -> let _     = expr builder e in builder
@@ -239,10 +231,8 @@ let translate (SProgram(statements)) =
     | SAssign (name, ((t, _) as sx)) -> 
         let e' = expr builder sx in 
         if is_pointer t then 
-          let heap_ptr = L.build_load e' name builder in
-          let new_listlit = L.build_load heap_ptr name builder in (* getting the actual list's heap address in new_listlit *)
-          let original_heap_ptr = L.build_load (find_variable !env name) name builder in (* this is the address of the named list variable on the LHS *)
-          let _ = L.build_store new_listlit original_heap_ptr builder in builder
+          let lhs = find_variable !env name in
+          let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
         else
           let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
     | SDefine(s, Arrow(formals, retty), name, (_, e)) ->
@@ -326,7 +316,7 @@ let translate (SProgram(statements)) =
       let value = L.build_call list_at_func [| list; (expr builder e2) |] "list_at" builder in
       let cast = 
         if is_pointer t1 then 
-          L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder
+          L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder (* TODO: how do we deal with mutexes here? WHY ARE MUTEXES PASSED BY REFERENCE TO BEGIN WITH!? *)
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
       L.build_load cast "list_at" builder
     | SCall (f, args) -> 
@@ -368,7 +358,7 @@ let translate (SProgram(statements)) =
       | A.Mod        -> raise (Failure "Internal Error: semant should have rejected mod on float")
       | A.And | A.Or -> raise (Failure "internal Error: semant should have rejected and/or on float")
            ) e1' e2' "tmp" builder 
-      else (match op with              (* TODO: what about binary operators on data types other than Int or Floats? Do we handle everything properly here? Semant should be solidified in order to reject stuff as specified in the LRM *)
+      else (match op with
       | A.Add     -> L.build_add
       | A.Sub     -> L.build_sub
       | A.Mult    -> L.build_mul
@@ -446,7 +436,7 @@ let translate (SProgram(statements)) =
     (* Push main_function definition to the curr_function stack first *)
     let _ = push_function main_function in
 
-    let final_builder = List.fold_left statement builder statements in  (* TODO: every time we build statements, remember to fold to get the updated builder after that statement's instruction! *)
+    let final_builder = List.fold_left statement builder statements in
     
     (* End the main function's basic block with a terminal, returning 0 *)
     let _ = add_terminal final_builder (L.build_ret (L.const_int i32_t 0)) in
