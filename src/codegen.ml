@@ -22,6 +22,10 @@ and voidptr_t  = L.pointer_type (L.i8_type context)
 and nodeptr_t  = L.pointer_type (L.named_struct_type context "Node") 
 
 let list_t     = L.pointer_type (L.struct_type context [| voidptr_t; nodeptr_t |])
+and pthread_t  = L.pointer_type (L.named_struct_type context "pthread_t")
+(* and mutex_t    = L.named_struct_type context "pthread_mutex_t" *)
+
+let thread_t   = pthread_t 
 
 let ltype_of_typ = function
   A.Int     -> i32_t
@@ -30,6 +34,7 @@ let ltype_of_typ = function
 | A.Quack   -> quack_t
 | A.String  -> string_t
 | A.List(_) -> list_t
+| A.Thread  -> thread_t
 | _         -> raise (TODO "unimplemented ltype_of_typ for other types")
 
 let is_pointer = function 
@@ -180,8 +185,21 @@ let translate (SProgram(statements)) =
 
   let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
-
   (* ----- end of builtin function declarations ----- *)
+
+
+  (* ----- start of thread related function declarations ----- *)
+  let pthread_create_t          = L.function_type i32_t [| (L.pointer_type pthread_t); voidptr_t; (L.pointer_type (L.function_type voidptr_t [| voidptr_t |])); voidptr_t |] in 
+  let pthread_join_t            = L.function_type i32_t [| pthread_t; (L.pointer_type voidptr_t) |] in
+  (* let pthread_mutex_lock_t      = L.function_type i32_t [| L.pointer_type mutex_t |]
+  let pthread_mutex_unlock_t    = L.function_type i32_t [| L.pointer_type mutex_t |] in *)
+
+  let pthread_create_func       = L.declare_function "pthread_create" pthread_create_t the_module in 
+  let pthread_join_func         = L.declare_function "pthread_join" pthread_join_t the_module in
+  (* let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
+  let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in *)
+  (* ----- end of thread related function declarations ----- *)
+
 
   let rec statement builder = function
       SExpr e -> let _     = expr builder e in builder
@@ -319,6 +337,7 @@ let translate (SProgram(statements)) =
           L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder (* TODO: how do we deal with mutexes here? WHY ARE MUTEXES PASSED BY REFERENCE TO BEGIN WITH!? *)
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
       L.build_load cast "list_at" builder
+    | SCall ("Thread_join", [e]) -> L.build_call pthread_join_func [| expr builder e; L.const_null (L.pointer_type voidptr_t) |] "" builder
     | SCall (f, args) -> 
       (* TODO: deal with store here. If f has already been called with these args, generate instructions to atomically look into the store for the cached answer *)
       let fdef   = find_variable !env f in
@@ -381,7 +400,14 @@ let translate (SProgram(statements)) =
         | A.Neg                  -> L.build_neg
         | A.Not                  -> L.build_not 
       ) e' "tmp" builder
-    | SThread body -> raise (TODO "unimplemented SThread")
+    | SThread body -> 
+      let funtype  = A.Arrow([], A.Quack) in 
+      let fdef     = expr builder (funtype, SLambda(false, A.Quack, [], body)) in 
+      let fptr     = L.build_bitcast fdef (L.pointer_type (L.function_type quack_t [||])) "fptr" builder in (* TODO: may potentially need to modify this with closure as arg *)
+      let fcast    = L.build_bitcast fptr (L.pointer_type (L.function_type voidptr_t [|voidptr_t|])) "fptr_cast" builder in (* complying with pthread_create's signature *)
+      let pthread_t_ref = L.build_alloca pthread_t "pthread_t" builder in
+      let _ = L.build_call pthread_create_func [|pthread_t_ref; L.const_null voidptr_t; fcast; L.const_null voidptr_t|] "" builder in
+      L.build_load pthread_t_ref "pthread_t" builder
     | (SLambda (store, retty, formals, body)) as e -> 
       let typ = A.Arrow((List.map fst formals), retty) in
       let name = generate_name () in
