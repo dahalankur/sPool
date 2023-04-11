@@ -14,7 +14,7 @@ testcodegen: $(EXEC) runtests.py
 	@python3 runtests.py codegen all
 
 %.o: %.c
-	@$(CXX) -c $^
+	@$(CXX) -c -pthread $^
 
 $(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml codegen.ml
 	@ocamlbuild $@ -package llvm -package llvm.analysis
