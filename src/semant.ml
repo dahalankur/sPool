@@ -153,15 +153,18 @@ let check (Program(statements)) =
     in if t != Bool then raise (TypeError err) else (t, se)
   and construct_arrow_type formals t = 
     let ts = if formals = [] then [Quack] else List.map fst formals in Arrow(ts, t)
+  and is_function = function 
+    | Arrow(_, _) -> true | _ -> false
   and check_statement = function
       Expr(expr)               -> SExpr (check_expr expr)
     | Define(s, t, name, expr) ->
+        let _ = if List.mem name builtin_functions then raise (SemanticError ("name " ^ name ^ " is a built-in function and may not be redefined")) else () in
+        let _ = if defined_in_current_scope name then raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope")) else () in
+        let _ = if is_function t then let _ = add_to_scope(false, t, name) in () else () in (* Support recursive calls *)
         (match check_expr expr with
-            _       when List.mem name builtin_functions -> raise (SemanticError ("name " ^ name ^ " is a built-in function and may not be redefined"))
-          | _       when defined_in_current_scope name -> raise (SemanticError ("name " ^ name ^ " is already defined in the current scope and may not be redefined in this scope"))
           | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
           | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
-          | (t1, sx) as sexpr -> 
+          | (t1, sx) as sexpr ->   
               let _ = (match t1 with
                   Arrow(_, _) | Thread when s -> raise (TypeError ("variables of type " ^ string_of_type t1 ^ " may not be defined as shared variables"))
                 | _ -> ()) 
@@ -169,7 +172,7 @@ let check (Program(statements)) =
               let is_shared = (match t with List(_) | Mutex -> true
                                           | _               -> s) 
               in
-              let _ = add_to_scope (is_shared, t, name)
+              let _ = if not (is_function t) then add_to_scope (is_shared, t, name) else ()
               in SDefine(is_shared, t, name, sexpr))
     | Assign(name, expr) -> 
         let (t1, sx) as sexpr = check_expr expr in 
