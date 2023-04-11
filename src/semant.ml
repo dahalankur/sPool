@@ -121,7 +121,7 @@ let alpha_to_builtin (fname, argtypes) = match (fname, argtypes) with
 let check (Program(statements)) =
   let rec eqTypes = function
       []             -> true
-    | [t]            -> true
+    | [_]            -> true
     | t1 :: t2 :: ts -> (eqType(t1, t2)) && (eqTypes (t2 :: ts)) in
   let rec quack_type = function 
       Quack   -> true 
@@ -164,7 +164,7 @@ let check (Program(statements)) =
         (match check_expr expr with
           | _       when quack_type t -> raise (TypeError ("variables of type quack may not be defined"))
           | (t1, _) when not (eqType(t1, t))  -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t))
-          | (t1, sx) as sexpr ->   
+          | (t1, _) as sexpr ->   
               let _ = (match t1 with
                   Arrow(_, _) | Thread when s -> raise (TypeError ("variables of type " ^ string_of_type t1 ^ " may not be defined as shared variables"))
                 | _ -> ()) 
@@ -175,7 +175,7 @@ let check (Program(statements)) =
               let _ = if not (is_function t) then add_to_scope (is_shared, t, name) else ()
               in SDefine(is_shared, t, name, sexpr))
     | Assign(name, expr) -> 
-        let (t1, sx) as sexpr = check_expr expr in 
+        let (t1, _) as sexpr = check_expr expr in 
             (match find_variable !env.scope name with
                 t when eqType (t1, t) -> SAssign(name, sexpr)
               | t -> raise (TypeError ("expression " ^ string_of_expr expr ^ " of type " ^ string_of_type t1 ^ " may not be assigned to a variable of type " ^ string_of_type t)))
@@ -184,7 +184,7 @@ let check (Program(statements)) =
         let _ = push_scope () in
         let sexpr = SWhile(conditional, List.map check_statement statements) in
         let _ = pop_scope () in sexpr
-    | Return(expr) -> raise (SemanticError "Return statement may not exist outside of a function definition")
+    | Return(_) -> raise (SemanticError "Return statement may not exist outside of a function definition")
     | If(expr, statements1, statements2) -> 
         let conditional = check_bool_expr expr in
         let _ = push_scope () in
@@ -230,15 +230,15 @@ let check (Program(statements)) =
             else raise (TypeError ("lists must only contain expressions of the same type in expression: " ^ string_of_expr expr)))
     | Var(s)              -> (find_variable !env.scope s, SVar(find_shared !env.scope s, s))
     | Unop(op, e) as expr -> 
-        let (t, se) as sexpr = check_expr e in
+        let (t, _) as sexpr = check_expr e in
           (let ty = match op with
               Neg when (t = Int || t = Float) -> t
             | Not when t = Bool               -> Bool
             | _                               -> raise (TypeError ("illegal unary operator " ^ string_of_uop op ^ " on type " ^ string_of_type t ^ " in expression: " ^ string_of_expr expr))
           in (ty, SUnop(op, sexpr)))
     | Binop(e1, op, e2) as expr -> 
-        let (t1, se1) as sexpr1 = check_expr e1 in
-        let (t2, se2) as sexpr2 = check_expr e2 in
+        let (t1, _) as sexpr1 = check_expr e1 in
+        let (t2, _) as sexpr2 = check_expr e2 in
           if not (eqType(t1, t2)) then raise (TypeError ("binary operator " ^ string_of_op op ^ " must get identical types, not " ^ string_of_type t1 ^ " and " ^ string_of_type t2 ^ " in expression: " ^ string_of_expr expr)) else
             (let ty = match op with
               | Add | Sub | Mult | Div     when (t1 = Int || t1 = Float) -> t1
@@ -264,10 +264,10 @@ let check (Program(statements)) =
         let _ = List.map (fun (ft, fn) -> add_to_scope (is_shared ft, ft, fn)) formals in (* TODO: add in LRM that only list and mutex formal PARAMETERS are marked as shared. that means whenever a function is called with arg as a shared var, it will behave as unshared inside that function except lists and mutexes ...this is different to shared vars captured in closures *)
         (* check whether return statement is the last statement in function body *)
         let rec check_body xs acc = match xs with       
-            [Return(e)] -> let (t', se) as sx = check_expr e in
+            [Return(e)] -> let (t', _) as sx = check_expr e in
                                 if (eqType (t', t)) then SLambda(store, t, formals, (List.rev acc) @ [SReturn(sx)]) 
                                                     else raise (TypeError "Expression in return statement must match type declared in function") 
-          | [x] -> raise (SemanticError "No statement(s) can follow a return statement")
+          | [_] -> raise (SemanticError "No statement(s) can follow a return statement")
           | x :: xs_rest -> check_body xs_rest (check_statement x :: acc)
           | _ -> raise (Failure "InternalError: shouldn't happen in body")
         in let slam = check_body statements [] in 

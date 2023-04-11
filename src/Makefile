@@ -17,7 +17,7 @@ testcodegen: $(EXEC) runtests.py
 	@$(CXX) -c -pthread $^
 
 $(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml codegen.ml
-	@ocamlbuild $@ -package llvm -package llvm.analysis
+	@ocamlbuild $@ -package llvm -package llvm.analysis -cflags -w,+a-4-70-42
 
 clean:
 	@ocamlbuild -clean

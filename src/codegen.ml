@@ -261,7 +261,7 @@ let translate (SProgram(statements)) =
           let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
         else
           let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
-    | SDefine(s, Arrow(formals, retty), name, (_, e)) ->
+    | SDefine(_, A.Arrow(formals, retty), name, (_, e)) ->
       let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
       let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
       let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
@@ -282,7 +282,7 @@ let translate (SProgram(statements)) =
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
       let _    = L.build_store llval heap builder in
     heap
-  and expr builder (t, e) = match e with 
+  and expr builder (_, e) = match e with 
       SNoexpr     -> L.const_int i32_t 0
     | SLiteral i  -> L.const_int i32_t i
     | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
@@ -300,7 +300,7 @@ let translate (SProgram(statements)) =
         let listval = L.build_load list_ptr "listval" builder in
         L.build_call list_insert_func [| listval; L.const_int i32_t i; void_cast |] "" builder
       ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in list_ptr
-    | SVar (s, name)                 -> 
+    | SVar (_, name)                 -> 
       let llval = (find_variable !env name) in
       if is_llval_pointer llval then llval else L.build_load llval name builder
       (* TODO: handle functions differently here *)
@@ -336,7 +336,7 @@ let translate (SProgram(statements)) =
       let e' = expr builder e1 in 
       let list = L.build_load e' "listval" builder in 
       L.build_call list_replace_func [| list; (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
-    | SCall ("List_at", [((List(t1), _) as e1); e2]) ->
+    | SCall ("List_at", [((A.List(t1), _) as e1); e2]) ->
       let e' = expr builder e1 in 
       let list = L.build_load e' "listval" builder in
       let value = L.build_call list_at_func [| list; (expr builder e2) |] "list_at" builder in
@@ -419,7 +419,7 @@ let translate (SProgram(statements)) =
       let pthread_t_ref = L.build_alloca pthread_t "pthread_t" builder in
       let _ = L.build_call pthread_create_func [|pthread_t_ref; L.const_null voidptr_t; fcast; L.const_null voidptr_t|] "" builder in
       L.build_load pthread_t_ref "pthread_t" builder
-    | (SLambda (store, retty, formals, body)) as e -> 
+    | (SLambda (store, retty, formals, _)) as e -> 
       let typ = A.Arrow((List.map fst formals), retty) in
       let name = generate_name () in
       let def = SDefine(store, typ, name, (typ, e)) in
@@ -438,7 +438,7 @@ let translate (SProgram(statements)) =
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
   and build_named_function name init_builder = function
-    SLambda (store, retty, formals, body) ->
+    SLambda (_, retty, formals, body) ->
       let fdef = find_variable !env name in
       let _ = push_function fdef in
       let _ = push_scope () in

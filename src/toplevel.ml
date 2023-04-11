@@ -7,10 +7,6 @@
    Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
 *)
 
-open Ast
-open Sast
-open Semant
-
 type action = Ast | Sast | LLVM_IR | Compile
 
 let () =
