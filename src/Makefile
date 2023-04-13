@@ -8,10 +8,10 @@ CXX  := gcc
 all: $(EXEC) builtins.o list.o
 
 testparser: $(EXEC) runtests.py
-	@python3 runtests.py lexerparser all
+	@python3 runtests.py lexerparser all _
 
 testcodegen: $(EXEC) runtests.py
-	@python3 runtests.py codegen all
+	@python3 runtests.py codegen all _
 
 %.o: %.c
 	@$(CXX) -c -pthread $^

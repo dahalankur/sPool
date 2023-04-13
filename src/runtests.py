@@ -24,10 +24,24 @@ def run_test(codegen, test):
     
     print("Testing " + test.split("/")[-1] + ":\n")
 
-    success_tests = sorted(glob.glob(test + "/test-*.sP"))
-    success_expected = sorted(glob.glob(test + "/test-*.out"))
-    fail_tests = sorted(glob.glob(test + "/fail-*.sP"))
-    fail_expected = sorted(glob.glob(test + "/fail-*.err"))
+    if ".sP" in test:
+        # individual testing
+        if "test-" in test:
+            success_tests = [test]
+            success_expected = [test.replace(".sP", ".out")]
+            fail_tests = []
+            fail_expected = []
+        else:
+            success_tests = []
+            success_expected = []
+            fail_tests = [test]
+            fail_expected = [test.replace(".sP", ".err")]
+    else:
+        # batch testing
+        success_tests = sorted(glob.glob(test + "/test-*.sP"))
+        success_expected = sorted(glob.glob(test + "/test-*.out"))
+        fail_tests = sorted(glob.glob(test + "/fail-*.sP"))
+        fail_expected = sorted(glob.glob(test + "/fail-*.err"))
 
     # Run the tests that should succeed
     for test, expected in zip(success_tests, success_expected):
@@ -101,17 +115,20 @@ def main(to_test):
     global ARGS
 
     base_test_dir = to_test[0]
-    to_test = to_test[1]
+    to_test = to_test[1:]
     
     tests = []
     tests_dir = os.path.dirname(os.path.realpath(__file__)) + f"/../tests/{base_test_dir}/"
 
-    if to_test == "all":
+    if to_test[0] == "all":
         print("Running all tests\n")
         tests = glob.glob(tests_dir + "*")
     else:
-        if os.path.exists(tests_dir + to_test):
-            tests.append(tests_dir + to_test)
+        if os.path.exists(tests_dir + to_test[0] + "/" + to_test[1] + ".sP"):
+            filename = tests_dir + to_test[0] + "/" + to_test[1] + ".sP"
+            tests.append(filename)
+        else:
+            print("The requested test does not exist. Please ensure you typed the correct name. \nTo double check the name of the test, look at the tests under the tests/ directory.\n\nFor example, for running codegen tests on the test-if1.sP file, run python3 runtests.py codegen if test-if1\n")
 
     if not os.path.exists(EXECUTABLE):
         print("toplevel.native not found. Please run 'make' first in the src directory.")
@@ -124,7 +141,6 @@ def main(to_test):
         ARGS += "-s"
     elif base_test_dir == "codegen":
         ARGS += "-c"
-    # TODO: add more when we have more tests
 
     for test in tests:
         run_test(base_test_dir == "codegen", test)
@@ -139,7 +155,9 @@ def main(to_test):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print("Usage: python3 runtests.py testdir [all|testname]")
+    if len(sys.argv) != 4:
+        print("Usage: python3 runtests.py testdir [all|testname] [filename]")
+        # if all is given, filename is ignored
+        # if testname is given, filename is the individual test file to run
         sys.exit(1)
     main(sys.argv[1:])
