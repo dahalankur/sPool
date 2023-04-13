@@ -1,0 +1,1 @@
+string y = String_substr(true, 0, 20)
