@@ -1,7 +1,7 @@
-if (true && true && (false && (true || false || true))):
-    print("nope")
+int x = 9
+if (false):
+    int x = 123
 else
-    print("Hey there!")
-    print(" My name Jeff")
-    println(".")
+    print("x is ")
+    println(int_to_string(x))
 ;

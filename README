@@ -1,8 +1,173 @@
-                    The sPool Programming Language
-                           Team Nautilus
-                    
-                    Yuma Takahashi (yuma.takahashi@tufts.edu)
-                    Max Mitchell   (maxwell.mitchell@tufts.edu)
-                    Ankur Dahal    (ankur.dahal@tufts.edu)
-                    Etha Hua       (tianze.hua@tufts.edu)
+The sPool Programming Language - Team Nautilus
+Project Deliverable #4: Extended Testsuite
 
+Members:    
+Yuma Takahashi (yuma.takahashi@tufts.edu)
+Max Mitchell (maxwell.mitchell@tufts.edu)
+Ankur Dahal (ankur.dahal@tufts.edu)
+Etha Hua (tianze.hua@tufts.edu)
+
+--------------------------------------------------------------------------------
+
+The sPool integration testing suite:
+
+- Programs present in the testing suite:
+  Our testing suite follows the format of the testing suite we submitted for 
+  our scanner and parser deliverable: there are directories under tests/codegen
+  that contain a bunch of tests. Tests that are expected to succeed are 
+  named with test-<testname[n]>.sP with their corresponding gold-standard output 
+  stored in test-<testname[n]>.out, whereas tests that are expected to fail 
+  are named with fail-<testname[n]>.sP with their corresponding gold-standard 
+  error output stored in fail-<testname[n]>.err. The description of the 
+  programs present in our testing suite is given below:
+       
+       - fail-if1 : detect the semantic error where the conditional of an if statement
+                    is a string value instead of a boolean value
+       - fail-if2 : detect the semantic error where an integer value is 
+                     being "anded" with a boolean value
+       - test-if1 : Testing that if the condition for if is true, then the program  
+                    goes into the if block and executes that section. The conditional
+                    is an equality check between two integers.
+       - test-if2 : Testing that if the condition for if is false, then the program
+                    goes into the else block and executes that section.
+       
+       - fail-print1 : Testing a semantic error related to the print built-in function 
+                       by supplying a non-string integer argument to it.
+       - fail-print2 : Testing a semantic error related to the print built-in function 
+                       by supplying a non-string boolean argument to it.
+       - test-print1 : Testing the println built-in function with a true boolean value.
+       - test-print2 : Testing the println built-in function with a "Hello, world!" string.
+       - test-print3 : Testing the println built-in function with a multi-line
+                       string value.
+
+       - test-list1 :  Testing the List_insert built-in function with inserting elements
+                       to the front, middle and back of a list.
+       - test-list2 :  Testing the List_insert built-in function with inserting elements
+                       to an empty list.
+       - test-list3 :  Testing the polymorphic feature of list via spawning 
+                       lists of integers, strings, booleans, float, threads 
+                       as well as a list of lists of integers. 
+       - test-list4 :  Testing the List_replace built-in function with replacing
+                       an element at the front, in the middle and at the back.
+       - test-list5 :  Testing the List_remove built-in function with removing
+                       an element at the front, in the middle and at the back.
+       - test-list6 :  Testing the List_at built-in function with accessing
+                       an element at the front, in the middle and at the back.
+       - test-list7 :  Testing the List_len built-in function with printing out
+                       the length of a list before and after removing and inserting 
+                       elements from/to it.
+       - test-list8 :  Testing lists to be passed and stored as references. Multiple list 
+                       variables point to the same list, changes are being made to the list 
+                       by calling list-modifying functions with different list variables, 
+                       while the change is preserved when the same list is accessed via all 
+                       three list variables.
+       - fail-list1 : Testing that a creation of heterogeneous list fails
+       - fail-list2 : Testing that the List_insert built-in function fails by inserting
+                      a type different from that of elements in the supplied list literal
+
+       - test-strings1 : Testing the String_substr built-in function by printing 
+                         the length of a string
+       - test-strings2 : Testing the String_eq and String_concat built-in functions by
+                         concatenating two strings if those two strings are not equivalent
+       - fail-strings1 : Testing that the String_substr built-in function fails on an
+                         argument with the incorrect type.
+
+       - test-thread1 : Testing waiting for an asynchronous thread to finish 
+                        executing works as expected. The main thread only 
+                        exits after the expected outputs have been printed 
+                        to stdout.
+       - test-thread2 : Similar to test-thread1, but now there are ten threads 
+                        concurrently printing to stdout. This test waits for 
+                        all threads to be done before the main thread exits, 
+                        ensuring that the output is always deterministic.
+
+--------------------------------------------------------------------------------
+
+Scripts provided:
+
+NOTE: For all scripts mentioned below, please ensure that you are within the `src` 
+directory.
+
+- Compile the compiler:
+       A Makefile is provided which compiles the compiler into an executable. 
+       When present in the `src` directory, type `make` to generate the executable 
+       file named `toplevel.native`. To successfully compile the sPool compiler, it 
+       is expected that the tools required to compile the MicroC compiler are 
+       present on the host machine, i.e., basic OCaml toolchain (ocaml, ocamlbuild, 
+       ocamllex, ocamlyacc, ocamlfind, opam) as well as LLVM (LLVM on the host 
+       machine and the Ocaml LLVM API installed using opam) must be present. 
+       Other than these tools and Python3 (tested on versions 3.8.10 and higher, 
+       although lower versions should still work), no additional packages/tools 
+       are needed to compile the sPool compiler or to run any of the 
+       included tests.
+
+- Run all tests:
+       To run all tests in this integration testing suite, type:
+       
+              `make testcodegen`
+
+       This should automatically compile the compiler and run our `runtests.py` python script
+       to run all tests in the testsuite.
+
+- Run a single test:
+
+       To run a single test, type:
+              `python3 runtests.py codegen <TESTDIR> <TESTNAME>` where <TESTDIR> is the
+       name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
+       name of the test without the extension `.sP` in sPool/test/codegen/<TESTDIR>/
+       
+       For example, if you want to run an individual test on the test-list8.sP file under 
+       sPool/tests/codegen/list, type:
+              `python3 runtests.py codegen list test-list8`
+       
+       Similarly, if you want to run the test on the fail-strings1.sP file 
+       under sPool/tests/codegen/strings, type:
+              `python3 runtests.py codegen strings fail-strings1`
+
+- Run the compiler on a given source file:
+
+       To compile a specific sPool source file, type
+              `./compile.sh <file> <executable>`
+       
+       where <file> is the sPool src file to be compiled, and the <executable>
+       is the name of the executable generated. The intermediate files generated 
+       in the process will be present in the same directory from which the 
+       compile script was run. There are two files generated for each sPool 
+       source file compiled -- the LLVM IR (having .ll extension) and the 
+       assembly file (having .s extension).
+
+       For instance, if you want to compile a sPool source file hello.sP, run:
+              `./compile.sh hello.sP a.out`
+       The resulting executable will be named a.out, so running `./a.out` will 
+       execute the program.
+
+--------------------------------------------------------------------------------
+
+How testing works:
+
+- Successful compilation and output validation:
+       If the compilation was successful, then it would exhibit no errors. 
+       The compilation step involves three stages: compiling the sPool source 
+       file to LLVM IR, compiling the LLVM IR to assembly, and then linking 
+       this assembly file with the external object file written in C to produce
+       the final executable. The testing script does all this to produce an 
+       executable for every test that is expected to pass. If there were any 
+       errors in any of these steps, the process of testing is stopped and the 
+       error is reported. Otherwise, the executable is run for each test whose
+       output is compared with what we expect (aka the "gold standard", present 
+       in the .out files). If they are equivalent the test passes with the 
+       message `Test <test.sP> PASSED`, where `test.sP` is the test file. 
+       Any errors would show the expected output and the output we got on the 
+       test report screen.
+
+- Unsuccessful compilation:
+       If the compilation was unsuccessful, it could be due to a semantic error, 
+       a lexing error, or a parsing error. In this case, an error will be raised
+       terminating compilation. Our compilation error strategy is to halt 
+       compilation at the time of the first error and display the error message
+       to the user.
+
+       The testing script will, for tests that are expected to fail, compare 
+       the expected error message against the one we received while trying 
+       to compile the program and determine if the compilation process 
+       was successful or not.

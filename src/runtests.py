@@ -137,8 +137,6 @@ def main(to_test):
     # send correct arguments to toplevel.native
     if base_test_dir == "lexerparser":
         ARGS += "-a"
-    elif base_test_dir == "semant":
-        ARGS += "-s"
     elif base_test_dir == "codegen":
         ARGS += "-c"
 

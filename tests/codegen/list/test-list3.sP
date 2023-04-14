@@ -5,6 +5,7 @@ list<string> b = ["a", "b"]
 list<bool> c = [true, false, false, true]
 list<float> d = [1.1, 2.2, 3.3]
 list<list<int>> e = [[], [1,2,3], [9,8,7], [1]]
+list<thread> f = [{ 1 }, { false }]
 
 println(int_to_string(List_at(a, 0)))
 println(List_at(b, 1))
