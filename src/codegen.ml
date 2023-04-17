@@ -9,15 +9,13 @@ module A = Ast
 module S = Stack
 open Sast
 
-(* TODO: at the end, enable the warning flags from microC and ensure there are no such warnings *)
-
 module StringMap = Map.Make(String)
 
 let context    = L.global_context ()
-let i32_t      = L.i32_type    context (* TODO: if we use these types, can we update our LRM to say integers are 32-bits and no longer platform dependent? *)
+let i32_t      = L.i32_type    context
 and i8_t       = L.i8_type     context
 and i1_t       = L.i1_type     context
-and float_t    = L.double_type context (* TODO: also update this info in LRM about the internal representation of floating point numbers *)
+and float_t    = L.double_type context
 and quack_t    = L.void_type   context 
 and string_t   = L.pointer_type (L.i8_type context) 
 and voidptr_t  = L.pointer_type (L.i8_type context)
@@ -25,7 +23,7 @@ and nodeptr_t  = L.pointer_type (L.named_struct_type context "Node")
 
 let list_t     = L.pointer_type (L.struct_type context [| voidptr_t; nodeptr_t |])
 and pthread_t  = L.pointer_type (L.named_struct_type context "pthread_t")
-and mutex_t    = L.pointer_type (L.named_struct_type context "pthread_mutex_t")
+(* and mutex_t    = L.pointer_type (L.named_struct_type context "pthread_mutex_t") *)
 
 let thread_t   = pthread_t 
 
@@ -37,12 +35,13 @@ let ltype_of_typ = function
 | A.String  -> string_t
 | A.List(_) -> list_t
 | A.Thread  -> thread_t
-| A.Mutex   -> mutex_t (* TODO: unimplemented: just the types and dummy SCalls are put in as templates for mutexes *)
+(* | A.Mutex   -> mutex_t *)
+(* | A.Arrow(ts, t) -> TODO: *)
 | _         -> raise (TODO "unimplemented ltype_of_typ for other types")
 
 let is_pointer = function 
   A.List(_) -> true
-(* | A.Mutex   -> true *) (* TODO: uncomment when dealing with mutexes *)
+(* | A.Mutex   -> true *)
 | _         -> false
 
 let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type list_t)))  (* TODO: add for mutex later *)
@@ -199,13 +198,13 @@ let translate (SProgram(statements)) =
   (* ----- start of thread related function declarations ----- *)
   let pthread_create_t          = L.function_type i32_t [| (L.pointer_type pthread_t); voidptr_t; (L.pointer_type (L.function_type voidptr_t [| voidptr_t |])); voidptr_t |] in 
   let pthread_join_t            = L.function_type i32_t [| pthread_t; (L.pointer_type voidptr_t) |] in
-  let pthread_mutex_lock_t      = L.function_type i32_t [| mutex_t |] in
-  let pthread_mutex_unlock_t    = L.function_type i32_t [| mutex_t |] in
+  (* let pthread_mutex_lock_t      = L.function_type i32_t [| mutex_t |] in
+  let pthread_mutex_unlock_t    = L.function_type i32_t [| mutex_t |] in *)
 
   let pthread_create_func       = L.declare_function "pthread_create" pthread_create_t the_module in 
   let pthread_join_func         = L.declare_function "pthread_join" pthread_join_t the_module in
-  let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
-  let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in
+  (* let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
+  let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in *)
   (* ----- end of thread related function declarations ----- *)
 
 
@@ -260,7 +259,7 @@ let translate (SProgram(statements)) =
           let lhs = find_variable !env name in
           let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
         else
-          let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. should just work I think, because find_variable will return the function definition for that lambda on the rhs. OR MAYBE IT WILL NOT WORK AHHHHHH *)
+          let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. need to handle lambdas differently in svar too *)
     | SDefine(_, A.Arrow(formals, retty), name, (_, e)) ->
       let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
       let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
@@ -280,8 +279,7 @@ let translate (SProgram(statements)) =
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
-      let _    = L.build_store llval heap builder in
-    heap
+      let _    = L.build_store llval heap builder in heap
   and expr builder (_, e) = match e with 
       SNoexpr     -> L.const_int i32_t 0
     | SLiteral i  -> L.const_int i32_t i
@@ -303,7 +301,7 @@ let translate (SProgram(statements)) =
     | SVar (_, name)                 -> 
       let llval = (find_variable !env name) in
       if is_llval_pointer llval then llval else L.build_load llval name builder
-      (* TODO: handle functions differently here *)
+      (* TODO: handle functions/lambdas differently here *)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str; (expr builder e) |] "print" builder
     | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline; (expr builder e) |] "println" builder
@@ -346,9 +344,9 @@ let translate (SProgram(statements)) =
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
       L.build_load cast "list_at" builder
     | SCall ("Thread_join", [e]) -> L.build_call pthread_join_func [| expr builder e; L.const_null (L.pointer_type voidptr_t) |] "" builder
-    | SCall ("Mutex", []) -> raise (TODO "Mutex")
+    (* | SCall ("Mutex", []) -> raise (TODO "Mutex")
     | SCall ("Mutex_lock", [e]) -> let _ = L.build_call pthread_mutex_lock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_lock")
-    | SCall ("Mutex_unlock", [e]) -> let _ = L.build_call pthread_mutex_unlock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_unlock")
+    | SCall ("Mutex_unlock", [e]) -> let _ = L.build_call pthread_mutex_unlock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_unlock") *)
     | SCall (f, args) -> 
       (* TODO: deal with store here. If f has already been called with these args, generate instructions to atomically look into the store for the cached answer *)
       let fdef   = find_variable !env f in

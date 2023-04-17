@@ -92,7 +92,6 @@ void List_replace(Node **head, int index, void *v)
     List_insert(head, index, v);
 }
 
-// for debugging -- TODO: add list_to_string in builtins?
 void List_int_print(Node **l)
 {
     if (!l || !*l) {

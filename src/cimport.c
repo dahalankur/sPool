@@ -44,9 +44,6 @@ int float_to_int(double num)
 
 const char *string_concat(const char *s1, const char *s2)
 {
-    // For now, the memory of s1 and s2 are not freed because they may be used 
-    // in the sPool program even after this call
-
     int l1 = strlen(s1);
     int l2 = strlen(s2);
     int len = l1 + l2;
