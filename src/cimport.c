@@ -1,6 +1,5 @@
-// builtins.c
-// Implements the built-in functions for sPool
-// To be linked with the generated sPool executable
+// cimport.c
+// Implements functions for sPool that are later linked with the sPool compiler
 //
 // Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
 
@@ -8,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <pthread.h>
 
 #define DEBUG 0
 
@@ -77,6 +77,15 @@ const char *string_substr(const char *s1, int m, int n)
 int string_eq(const char *s1, const char *s2)
 {
     return strcmp(s1, s2) == 0;
+}
+
+// a helper for mutex to circumvent LLVM's "cannot allocate unsized type" error
+pthread_mutex_t **Mutex_init()
+{
+    pthread_mutex_t **mutex = (pthread_mutex_t **)malloc(sizeof(pthread_mutex_t *));
+    *mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    assert(pthread_mutex_init(*mutex, NULL) == 0);
+    return mutex;
 }
 
 #if DEBUG
