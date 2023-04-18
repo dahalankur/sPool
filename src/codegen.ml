@@ -65,8 +65,8 @@ let rec find_variable (scope : symbol_table) name =
       Some(parent) -> find_variable parent name
     | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
 
+(* dumps the symbol table to a list of (name, llvalue) pairs *)
 let list_of_llvals (scope : symbol_table) = 
-  (* recursively call bindings on scope.variables till we reach the case when parent is None *)
   let rec helper acc curr_scope = 
     (match curr_scope.parent with 
       None -> acc @ (List.rev (StringMap.bindings curr_scope.variables))
@@ -443,6 +443,10 @@ let translate (SProgram(statements)) =
       in env := new_scope
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
+  
+  (* creates a struct with fields {string, llval}, fills it up with the provided
+     binding argument and returns the created struct
+  *)
   and struct_of_llname_llval fname builder binding =
     let name_str = "(" ^ fname ^ "):" ^ (fst binding) ^ "__#" in
     let str_type = L.named_struct_type context name_str in
@@ -455,8 +459,13 @@ let translate (SProgram(statements)) =
     let _ = L.build_store (L.build_global_stringptr n n builder) nptr builder in
     let _ = L.build_store v vptr builder in
     L.build_load struct_alloc name_str builder
+  
+  (* dumps the current scope into a list of structs, each struct containing a string and an llval.
+     returns the list of structs and the updated builder   
+  *)
   and dump_scope fname builder = 
     let llval_bindings = list_of_llvals !env in 
+    (* remove duplicates; only keep the most recently seen variable *)
     let seen_names = ref StringMap.empty in 
     let llval_bindings = List.fold_left (fun acc (n, v) -> 
         let has_seen = StringMap.mem n !seen_names in
@@ -475,10 +484,10 @@ let translate (SProgram(statements)) =
       let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
      
       (* fill up global closure struct with individual structs of captured variables *)
-      let _ = List.fold_left (fun i dumped_llval -> 
-        let ith_struct = L.build_struct_gep global_closure_struct i "" builder in
+      let _ = List.fold_left (fun index dumped_llval -> 
+        let ith_struct = L.build_struct_gep global_closure_struct index "" builder in
         let _ = L.build_store dumped_llval ith_struct builder in
-        i + 1) 0 dumped_scope in ();
+      index + 1) 0 dumped_scope in ();
       
       (* build function body *)
       let fdef = find_variable !env name in
