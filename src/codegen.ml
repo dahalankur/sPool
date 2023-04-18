@@ -475,10 +475,10 @@ let translate (SProgram(statements)) =
       let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
      
       (* fill up global closure struct with individual structs of captured variables *)
-      (* let _ = List.fold_left (fun i dumped_llval -> 
-        let gep = L.build_struct_gep global_closure_struct i "gep" builder in
-        let _ = L.build_store dumped_llval gep builder in
-        i + 1) 0 dumped_scope in (); *)
+      let _ = List.fold_left (fun i dumped_llval -> 
+        let ith_struct = L.build_struct_gep global_closure_struct i "" builder in
+        let _ = L.build_store dumped_llval ith_struct builder in
+        i + 1) 0 dumped_scope in ();
       
       (* build function body *)
       let fdef = find_variable !env name in
