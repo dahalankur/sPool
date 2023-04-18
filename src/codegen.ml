@@ -65,6 +65,14 @@ let rec find_variable (scope : symbol_table) name =
       Some(parent) -> find_variable parent name
     | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
 
+let list_of_llvals (scope : symbol_table) = 
+  (* recursively call bindings on scope.variables till we reach the case when parent is None *)
+  let rec helper acc curr_scope = 
+    (match curr_scope.parent with 
+      None -> acc @ (List.rev (StringMap.bindings curr_scope.variables))
+    | Some(p) -> helper (acc @ List.rev (StringMap.bindings curr_scope.variables)) p)
+  in helper [] scope
+
 let rec find_shared (scope : symbol_table) name = 
   try
     StringMap.find name scope.shared
@@ -435,8 +443,44 @@ let translate (SProgram(statements)) =
       in env := new_scope
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
-  and build_named_function name init_builder = function
+  and struct_of_llname_llval fname builder binding =
+    let name_str = "(" ^ fname ^ "):" ^ (fst binding) ^ "__#" in
+    let str_type = L.named_struct_type context name_str in
+    let n = fst binding in
+    let v = snd binding in
+    let _ = L.struct_set_body str_type [|string_t; L.type_of v|] false in
+    let struct_alloc = L.build_alloca str_type "struct__" builder in
+    let nptr = L.build_struct_gep struct_alloc 0 n builder in
+    let vptr = L.build_struct_gep struct_alloc 1 "v" builder in
+    let _ = L.build_store (L.build_global_stringptr n n builder) nptr builder in
+    let _ = L.build_store v vptr builder in
+    L.build_load struct_alloc name_str builder
+  and dump_scope fname builder = 
+    let llval_bindings = list_of_llvals !env in 
+    let seen_names = ref StringMap.empty in 
+    let llval_bindings = List.fold_left (fun acc (n, v) -> 
+        let has_seen = StringMap.mem n !seen_names in
+        let answer = if has_seen then acc 
+          else 
+            let _ = seen_names := StringMap.add n true !seen_names in (n, v) :: acc
+          in answer) 
+        [] llval_bindings in
+    (List.map (struct_of_llname_llval fname builder) llval_bindings, builder)
+  and build_named_function name builder = function
     SLambda (_, retty, formals, body) ->
+      let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
+      let (dumped_scope, builder) = dump_scope name builder in
+      let dumped_scope_tys = List.map L.type_of dumped_scope in
+      let _ = L.struct_set_body closure_struct (Array.of_list (dumped_scope_tys)) false in 
+      let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
+     
+      (* fill up global closure struct with individual structs of captured variables *)
+      (* let _ = List.fold_left (fun i dumped_llval -> 
+        let gep = L.build_struct_gep global_closure_struct i "gep" builder in
+        let _ = L.build_store dumped_llval gep builder in
+        i + 1) 0 dumped_scope in (); *)
+      
+      (* build function body *)
       let fdef = find_variable !env name in
       let _ = push_function fdef in
       let _ = push_scope () in
@@ -457,7 +501,7 @@ let translate (SProgram(statements)) =
       let _ = add_terminal final_builder instr in
       
       let _ = pop_scope () in
-      let _ = pop_function () in init_builder
+      let _ = pop_function () in builder
     | _ -> raise (Failure "Internal Error: build_named_function called with non-lambda expression")
   
   and build_main_function builder statements =

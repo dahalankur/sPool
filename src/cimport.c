@@ -79,8 +79,8 @@ int string_eq(const char *s1, const char *s2)
 // a helper for mutex to circumvent LLVM's "cannot allocate unsized type" error
 pthread_mutex_t **Mutex_init()
 {
-    pthread_mutex_t **mutex = (pthread_mutex_t **)malloc(sizeof(pthread_mutex_t *));
-    *mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_t **mutex = (pthread_mutex_t **)malloc(sizeof(pthread_mutex_t *)); assert(mutex);
+    *mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t)); assert(*mutex);
     assert(pthread_mutex_init(*mutex, NULL) == 0);
     return mutex;
 }

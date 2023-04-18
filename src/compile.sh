@@ -4,9 +4,9 @@
 # generating any intermediate files in the process
 # Usage: compile.sh <sP file> <output file>
 # Note: This script generates the .ll and .s files in the current working 
-#       directory, not the directory of the sP file
+#       directory and not in the directory where the sP file is present
 #
-# Written by: Team Nautilus
+# Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
 
 set -euo pipefail
 
@@ -19,7 +19,7 @@ then
     if ! command -v $LLC &> /dev/null
     then
         echo "llc could not be found. Please make sure llc or llc-14 is installed and in your PATH."
-        exit
+        exit 1
     fi
 fi
 
@@ -37,12 +37,8 @@ if [ ! -f "$sP_file" ]; then
 fi
 
 sP_file_no_ext="${sP_file%.*}"
-
-# only get the file name, not the path
 sP_file_no_ext="${sP_file_no_ext##*/}"
-
 exec=$2
-
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # run make to compile the compiler
