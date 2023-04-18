@@ -63,7 +63,7 @@ let rec find_variable (scope : symbol_table) name =
   with Not_found ->
     match scope.parent with
       Some(parent) -> find_variable parent name
-    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
+    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_variable)"))
 
 (* dumps the symbol table to a list of (name, llvalue) pairs *)
 let list_of_llvals (scope : symbol_table) = 
@@ -79,10 +79,12 @@ let rec find_shared (scope : symbol_table) name =
   with Not_found ->
     match scope.parent with
       Some(parent) -> find_shared parent name
-    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis"))
+    | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_shared)"))
 
 (* initial env *)
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
+
+let seen_functions = ref StringMap.empty
 
 let anon_counter = ref 1
 
@@ -206,12 +208,14 @@ let translate (SProgram(statements)) =
   (* ----- start of thread related function declarations ----- *)
   let pthread_create_t          = L.function_type i32_t [| (L.pointer_type pthread_t); voidptr_t; (L.pointer_type (L.function_type voidptr_t [| voidptr_t |])); voidptr_t |] in 
   let pthread_join_t            = L.function_type i32_t [| pthread_t; (L.pointer_type voidptr_t) |] in
-  (* let pthread_mutex_lock_t      = L.function_type i32_t [| mutex_t |] in
+  (* let pthread_mutex_init_t      = L.function_type (L.pointer_type mutex_t) [| |] in
+  let pthread_mutex_lock_t      = L.function_type i32_t [| mutex_t |] in
   let pthread_mutex_unlock_t    = L.function_type i32_t [| mutex_t |] in *)
 
   let pthread_create_func       = L.declare_function "pthread_create" pthread_create_t the_module in 
   let pthread_join_func         = L.declare_function "pthread_join" pthread_join_t the_module in
-  (* let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
+  (* let pthread_mutex_init_func   = L.declare_function "Mutex_init" pthread_mutex_init_t the_module in
+  let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
   let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in *)
   (* ----- end of thread related function declarations ----- *)
 
@@ -468,6 +472,12 @@ let translate (SProgram(statements)) =
     (* remove duplicates; only keep the most recently seen variable *)
     let seen_names = ref StringMap.empty in 
     let llval_bindings = List.fold_left (fun acc (n, v) -> 
+        (* skip ourself *)
+        if String.equal n fname then acc else
+
+        (* also skip any other functions! *)
+        if StringMap.mem n !seen_functions then acc else
+
         let has_seen = StringMap.mem n !seen_names in
         let answer = if has_seen then acc 
           else 
@@ -496,6 +506,13 @@ let translate (SProgram(statements)) =
 
       let fun_builder = L.builder_at_end context (L.entry_block fdef) in
 
+      (* add this function to the seen list. This prevents functions from being 
+          captured by themselves and other functions. *)
+      let _ = seen_functions := StringMap.add name true !seen_functions in
+
+      (* go to the global closure struct for this function and unpack all captured variables *)
+      (* TODO: do this now...should not be too bad *)
+      
       if List.length formals > 0 then
         (* add params to scope *)
         let _ = List.iter2 (fun (t, n) p -> 
