@@ -487,15 +487,19 @@ let translate (SProgram(statements)) =
         if StringMap.mem n !seen_functions then acc else
 
         let has_seen = StringMap.mem n !seen_names in
-        let answer = if has_seen then acc 
-          else 
-            let _ = seen_names := StringMap.add n true !seen_names in (n, v) :: acc
-          in answer) 
-        [] llval_bindings in (List.map (struct_of_llval fname builder) llval_bindings, builder)
+        let answer = if has_seen then acc else let _ = seen_names := StringMap.add n true !seen_names in (n, v) :: acc
+        in  answer) [] llval_bindings in 
+        (* let _ = print_endline ("dumping scope for " ^ fname) in *)
+        (* print llval bindings *)
+        (* let _ = List.iter (fun (n, v) -> print_endline (n ^ " -> " ^ (L.string_of_llvalue v))) llval_bindings in *)
+
+        
+        (List.map (struct_of_llval fname builder) llval_bindings, builder)
   and build_named_function name builder = function
     SLambda (_, retty, formals, body) ->
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
+
       let dumped_scope_tys = List.map L.type_of dumped_scope in
       let _ = L.struct_set_body closure_struct (Array.of_list (dumped_scope_tys)) false in 
       let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
@@ -519,30 +523,22 @@ let translate (SProgram(statements)) =
         let var_struct_ptr = L.build_struct_gep global_closure_struct index "" fun_builder in
         let struct_var = L.build_load var_struct_ptr "" fun_builder in
         let struct_typ = L.type_of struct_var in 
-        (* let _ = print_endline (L.string_of_lltype struct_typ) in () *)
-        let struct_local = L.build_alloca struct_typ "" fun_builder in
-        let _ = L.build_store struct_var struct_local fun_builder in
 
         let struct_name = match (L.struct_name struct_typ) with Some(s) -> s | None -> "" in 
         let var_name = List.nth (String.split_on_char ':' struct_name) 1 in 
 
         let is_shared = find_shared !env var_name in 
-        (* let _ = print_endline ("variable " ^ var_name ^ " shared? " ^ string_of_bool is_shared) in *)
         
-        let llval_ptr = L.build_struct_gep struct_local 0 "" fun_builder in
+        let llval_ptr = L.build_struct_gep var_struct_ptr 0 "" fun_builder in
         let llval = L.build_load llval_ptr var_name fun_builder in
         let is_list = (L.type_of llval = (L.pointer_type list_t)) in 
 
         let shared_and_not_list = is_shared && (not is_list) in
 
-        let llval_local = L.build_alloca (L.type_of llval) (var_name ^ "_ptr") fun_builder in
-        let _ = L.build_store llval llval_local fun_builder in
+        let address = if (shared_and_not_list) then llval else llval_ptr in
 
-        let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else llval_local in
-
-        (* update our environment with llval_local overwriting previous bindings *)
-        let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent}
-        in env := new_scope) dumped_scope in 
+        let _ = let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent}
+        in env := new_scope in ()) dumped_scope in 
       
       if List.length formals > 0 then
         (* add params to scope *)
