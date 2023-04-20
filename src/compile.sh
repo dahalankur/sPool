@@ -52,4 +52,4 @@ make -C "$script_dir"
 "$LLC" -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with cimport.o and the pthread library
-gcc -pthread "$sP_file_no_ext".s "$script_dir"/cimport.o "$script_dir"/list.o -o "$exec"
+gcc -O2 -pthread "$sP_file_no_ext".s "$script_dir"/cimport.o "$script_dir"/list.o -o "$exec"

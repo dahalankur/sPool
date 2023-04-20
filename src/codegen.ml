@@ -142,9 +142,9 @@ let translate (SProgram(statements)) =
   let pop_function   () = S.pop      !curr_function in
   let is_stack_empty () = S.is_empty !curr_function in
 
+  (* if top is stack is something other than "main", we are generating a nested function *)
   let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in 
-
-
+  
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
   let list_of_llvals (scope : symbol_table) builder = 
     let rec helper acc curr_scope = 
@@ -461,11 +461,11 @@ let translate (SProgram(statements)) =
   else 
     let _ = add_to_scope (s, p, n) builder t in ()
   
-  (* creates a struct with fields {string, llval}, fills it up with the provided
-     binding argument and returns the created struct
+  (* creates a struct with field {llval}, fills it up with the provided
+     llval argument and returns the created struct
   *)
   and struct_of_llval fname builder binding =
-    let name_str = "(" ^ fname ^ "):" ^ (fst binding) ^ ":__#" in
+    let name_str = "(" ^ fname ^ "):" ^ (fst binding) ^ ":" in
     let str_type = L.named_struct_type context name_str in
     let v = snd binding in
     let _ = L.struct_set_body str_type [| L.type_of v |] false in
@@ -474,7 +474,7 @@ let translate (SProgram(statements)) =
     let _ = L.build_store v vptr builder in
     L.build_load struct_alloc name_str builder
   
-  (* dumps the current scope into a list of structs, each struct containing a string and an llval.
+  (* dumps the current scope into a list of structs, each struct containing an llval.
      returns the list of structs and the updated builder   
   *)
   and dump_scope fname builder = 
@@ -482,24 +482,13 @@ let translate (SProgram(statements)) =
     captured by themselves and other functions. *)
     let _ = seen_functions := StringMap.add fname true !seen_functions in
     let (llval_bindings, builder) = list_of_llvals !env builder in 
-    (* remove duplicates; only keep the most recently seen variable *)
     let seen_names = ref StringMap.empty in 
     let llval_bindings = List.fold_left (fun acc (n, v) -> 
-        (* skip ourself *)
-        if String.equal n fname then acc else
-
-        (* also skip any other functions! *)
-        if StringMap.mem n !seen_functions then acc else
-
+        (* skip ourself and any other functions *)
+        if String.equal n fname then acc else if StringMap.mem n !seen_functions then acc else
         let has_seen = StringMap.mem n !seen_names in
         let answer = if has_seen then acc else let _ = seen_names := StringMap.add n true !seen_names in (n, v) :: acc
-        in  answer) [] llval_bindings in 
-        (* let _ = print_endline ("dumping scope for " ^ fname) in *)
-        (* print llval bindings *)
-        (* let _ = List.iter (fun (n, v) -> print_endline (n ^ " -> " ^ (L.string_of_llvalue v))) llval_bindings in *)
-
-        
-        (List.map (struct_of_llval fname builder) llval_bindings, builder)
+        in  answer) [] llval_bindings in (List.map (struct_of_llval fname builder) llval_bindings, builder)
   and build_named_function name builder = function
     SLambda (_, retty, formals, body) ->
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
