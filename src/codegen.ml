@@ -78,22 +78,6 @@ let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringM
 
 let seen_functions = ref StringMap.empty
 
-(* dumps the symbol table to a list of (name, llvalue) pairs *)
-let list_of_llvals (scope : symbol_table) builder = 
-  let rec helper acc curr_scope = 
-    (match curr_scope.parent with 
-      None -> acc @ (List.rev (StringMap.bindings curr_scope.variables))
-    | Some(p) -> helper (acc @ List.rev (StringMap.bindings curr_scope.variables)) p)
-  in 
-  (* for every non-shared var in helper [] scope, replace it with load. for shared vars, keep them as they are. for lists, load them *)
-  let result = List.rev (List.fold_left (fun acc (name, llval) -> 
-    if StringMap.mem name !seen_functions then acc else 
-    if is_llval_pointer llval then (name, L.build_load llval name builder) :: acc else 
-    if (find_shared !env name) then (name, llval) :: acc
-    else (name, L.build_load llval name builder) :: acc)
-    [] (helper [] scope))
-  in (result, builder)
-
 let anon_counter = ref 1
 
 let add_to_scope (s, v, n) builder t =
@@ -157,6 +141,27 @@ let translate (SProgram(statements)) =
   let push_function   f = S.push f   !curr_function in
   let pop_function   () = S.pop      !curr_function in
   let is_stack_empty () = S.is_empty !curr_function in
+
+  let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in 
+
+
+  (* dumps the symbol table to a list of (name, llvalue) pairs *)
+  let list_of_llvals (scope : symbol_table) builder = 
+    let rec helper acc curr_scope = 
+      (match curr_scope.parent with 
+        None -> acc @ (StringMap.bindings curr_scope.variables)
+      | Some(p) -> helper (acc @ (StringMap.bindings curr_scope.variables)) p)
+    in 
+    (* prevent nested functions from capturing old, stale scope. Nested functions need to only look at their current parent 
+       since their parent will have captured everything and added to their scope by this point anyway *)
+    let list_llvals = if (is_nested_fun ()) then (StringMap.bindings scope.variables) else (helper [] scope) in 
+    let result = List.rev (List.fold_left (fun acc (name, llval) -> 
+      if StringMap.mem name !seen_functions then acc else 
+      if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
+      if (find_shared !env name) then (name, llval) :: acc
+      else (name, L.build_load llval name builder) :: acc)
+      [] list_llvals)
+    in (result, builder) in 
   
   (* ----------- end of stack-related bookkeeping functions ----------- *)
 
@@ -432,7 +437,7 @@ let translate (SProgram(statements)) =
     | SThread body -> 
       let funtype  = A.Arrow([], A.Quack) in 
       let fdef     = expr builder (funtype, SLambda(false, A.Quack, [], body)) in 
-      let fptr     = L.build_bitcast fdef (L.pointer_type (L.function_type quack_t [||])) "fptr" builder in (* TODO: may potentially need to modify this with closure as arg *)
+      let fptr     = L.build_bitcast fdef (L.pointer_type (L.function_type quack_t [||])) "fptr" builder in
       let fcast    = L.build_bitcast fptr (L.pointer_type (L.function_type voidptr_t [|voidptr_t|])) "fptr_cast" builder in (* complying with pthread_create's signature *)
       let pthread_t_ref = L.build_alloca pthread_t "pthread_t" builder in
       let _ = L.build_call pthread_create_func [|pthread_t_ref; L.const_null voidptr_t; fcast; L.const_null voidptr_t|] "" builder in
@@ -464,7 +469,7 @@ let translate (SProgram(statements)) =
     let str_type = L.named_struct_type context name_str in
     let v = snd binding in
     let _ = L.struct_set_body str_type [| L.type_of v |] false in
-    let struct_alloc = L.build_alloca str_type "struct__" builder in
+    let struct_alloc = L.build_alloca str_type (fname ^ "__struct__" ^ (fst binding)) builder in
     let vptr = L.build_struct_gep struct_alloc 0 "v" builder in
     let _ = L.build_store v vptr builder in
     L.build_load struct_alloc name_str builder
@@ -519,23 +524,30 @@ let translate (SProgram(statements)) =
 
             
       (* unpacking the variables in the closure *)
+
       let _ = List.iteri (fun index _ -> 
         let var_struct_ptr = L.build_struct_gep global_closure_struct index "" fun_builder in
-        let struct_var = L.build_load var_struct_ptr "" fun_builder in
+        let struct_var = L.build_load var_struct_ptr "individual_data_struct" fun_builder in
         let struct_typ = L.type_of struct_var in 
+
+        let struct_local = L.build_alloca struct_typ "" fun_builder in
+        let _ = L.build_store struct_var struct_local fun_builder in
 
         let struct_name = match (L.struct_name struct_typ) with Some(s) -> s | None -> "" in 
         let var_name = List.nth (String.split_on_char ':' struct_name) 1 in 
 
         let is_shared = find_shared !env var_name in 
         
-        let llval_ptr = L.build_struct_gep var_struct_ptr 0 "" fun_builder in
+        let llval_ptr = L.build_struct_gep struct_local 0 "" fun_builder in
         let llval = L.build_load llval_ptr var_name fun_builder in
         let is_list = (L.type_of llval = (L.pointer_type list_t)) in 
 
         let shared_and_not_list = is_shared && (not is_list) in
 
-        let address = if (shared_and_not_list) then llval else llval_ptr in
+        let llval_local = L.build_alloca (L.type_of llval) (var_name ^ "_ptr") fun_builder in
+        let _ = L.build_store llval llval_local fun_builder in
+
+        let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else llval_local in
 
         let _ = let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent}
         in env := new_scope in ()) dumped_scope in 
