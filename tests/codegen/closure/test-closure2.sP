@@ -1,4 +1,4 @@
-# testing closure of non-shared variables
+# testing closure of shared variable
 
 shared int a = 5
 
