@@ -83,13 +83,22 @@ void List_remove(Node **head, int index)
         prev->next = curr->next;
     }
 
-    free(curr);
+    if (curr) free(curr);
 }
 
 void List_replace(Node **head, int index, void *v)
 {
-    List_remove(head, index);
-    List_insert(head, index, v);
+    assert(head && *head);
+    int len = List_len(head); assert((index >= 0) && (index < len));
+
+    Node *curr = *head; void *old = nullptr;
+    for (int i = 0; i < index; i++) {
+        curr = curr->next;
+    }
+    old = curr->data;
+    curr->data = v;
+
+    if (old) free(old);
 }
 
 void List_int_print(Node **l)
