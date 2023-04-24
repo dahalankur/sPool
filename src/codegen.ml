@@ -324,10 +324,15 @@ let translate (SProgram(statements)) =
         L.build_call list_insert_func [| listval; L.const_int i32_t i; void_cast |] "" builder
       ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in list_ptr
     | SVar (_, name)                 -> 
-      let llval = (find_variable !env name) in
+      let llval = find_variable !env name in
       (match t with 
-      A.Arrow(ts, t) -> (* TODO: fix this now *)
-        L.build_bitcast llval (L.pointer_type (L.pointer_type (L.function_type (ltype_of_typ t) (Array.of_list (List.map ltype_of_typ ts))))) "fptr" builder
+      A.Arrow(formals, retty) ->
+        (* copied from SDefine *)
+        let formal_types = Array.of_list (List.map (fun (t1) -> if is_pointer t1 then L.pointer_type (ltype_of_typ t1) else ltype_of_typ t1) formals) in
+        let formal_types = Array.of_list (List.filter (fun (t1) -> t1 <> quack_t) (Array.to_list formal_types)) in
+        let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
+        let ftype = L.function_type ret_llval formal_types in
+        L.build_bitcast llval (L.pointer_type ftype) name builder
       | _ -> 
         if is_llval_pointer llval then llval else L.build_load llval name builder)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
