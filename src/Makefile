@@ -1,9 +1,13 @@
+#
+# Makefile
 # Compiles the sPool compiler and runs tests 
+# Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
+#
 
 EXEC := toplevel.native
 CXX  := gcc
 
-.PHONY: all clean testparser
+.PHONY: all clean testparser testcodegen
 
 all: $(EXEC) builtins.o list.o
 

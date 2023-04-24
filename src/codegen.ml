@@ -280,16 +280,16 @@ let translate (SProgram(statements)) =
         let _                 = L.build_cond_br bool_val body_bb merge_bb pred_builder in L.builder_at_end context merge_bb
     | SAssign (name, ((t, _) as sx)) -> 
         let e' = expr builder sx in 
-        if is_pointer t then 
-          let lhs = find_variable !env name in
-          let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
-        else
-          let _  = L.build_store e' (find_variable !env name) builder in builder (* TODO: handle assignment of lambdas here too. need to handle lambdas differently in svar too *)
+        (match t with 
+          A.Arrow(_, _) -> raise (TODO "Assigning function to variable")
+          | _ ->
+            if is_pointer t then 
+              let lhs = find_variable !env name in
+              let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
+            else
+              let _  = L.build_store e' (find_variable !env name) builder in builder)
     | SDefine(_, A.Arrow(formals, retty), name, (_, e)) ->
-      let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
-      let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
-      let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
-      let ftype = L.function_type ret_llval formal_types in
+      let ftype = ftype_from_t (A.Arrow(formals, retty)) in
       let f = L.define_function name ftype the_module in
       let new_scope = {variables = StringMap.add name f !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
         in let _ = env := new_scope in build_named_function name builder e
@@ -302,6 +302,12 @@ let translate (SProgram(statements)) =
       let listval = L.build_load e' "listval" builder in
       let _ = L.build_ret listval builder in builder
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
+  and ftype_from_t = function
+      A.Arrow(formals, retty) -> 
+        let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
+        let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
+        let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in L.function_type ret_llval formal_types
+    | _ -> raise (Failure "Internal Error: ftype_from_t called on non-arrow type")
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
       let _    = L.build_store llval heap builder in heap
@@ -326,13 +332,7 @@ let translate (SProgram(statements)) =
     | SVar (_, name)                 -> 
       let llval = find_variable !env name in
       (match t with 
-      A.Arrow(formals, retty) ->
-        (* copied from SDefine *)
-        let formal_types = Array.of_list (List.map (fun (t1) -> if is_pointer t1 then L.pointer_type (ltype_of_typ t1) else ltype_of_typ t1) formals) in
-        let formal_types = Array.of_list (List.filter (fun (t1) -> t1 <> quack_t) (Array.to_list formal_types)) in
-        let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in
-        let ftype = L.function_type ret_llval formal_types in
-        L.build_bitcast llval (L.pointer_type ftype) name builder
+      A.Arrow(formals, retty) -> L.build_bitcast llval (L.pointer_type (ftype_from_t (A.Arrow(formals, retty)))) name builder
       | _ -> 
         if is_llval_pointer llval then llval else L.build_load llval name builder)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
@@ -564,7 +564,8 @@ let translate (SProgram(statements)) =
       
       let _ = pop_scope () in
       let _ = pop_function () in builder
-    | _ -> raise (Failure "Internal Error: build_named_function called with non-lambda expression")
+    | SVar(shared, name) -> raise (TODO "WE ARE ASSIGNING FUNCTIONS TO VARS")
+    | _ -> raise (Failure "Internal Error: non-lambda expression passed to build_named_function")
   
   and build_main_function builder statements =
     (* Note to self: at this point, final_builder is pointing to the END of the main function. 
