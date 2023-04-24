@@ -305,7 +305,7 @@ let translate (SProgram(statements)) =
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
       let _    = L.build_store llval heap builder in heap
-  and expr builder (_, e) = match e with 
+  and expr builder (t, e) = match e with 
       SNoexpr     -> L.const_int i32_t 0
     | SLiteral i  -> L.const_int i32_t i
     | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
@@ -325,8 +325,11 @@ let translate (SProgram(statements)) =
       ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in list_ptr
     | SVar (_, name)                 -> 
       let llval = (find_variable !env name) in
-      if is_llval_pointer llval then llval else L.build_load llval name builder
-      (* TODO: handle functions/lambdas differently here *)
+      (match t with 
+      A.Arrow(ts, t) -> (* TODO: fix this now *)
+        L.build_bitcast llval (L.pointer_type (L.pointer_type (L.function_type (ltype_of_typ t) (Array.of_list (List.map ltype_of_typ ts))))) "fptr" builder
+      | _ -> 
+        if is_llval_pointer llval then llval else L.build_load llval name builder)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str; (expr builder e) |] "print" builder
     | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline; (expr builder e) |] "println" builder
