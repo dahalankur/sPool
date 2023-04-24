@@ -281,7 +281,7 @@ let translate (SProgram(statements)) =
     | SAssign (name, ((t, _) as sx)) -> 
         let e' = expr builder sx in 
         (match t with 
-          A.Arrow(_, _) -> raise (TODO "Assigning function to variable")
+          A.Arrow(_, _) -> raise (TODO "Assigning function to variable") (* TODO: we just update the scope with the new pointer, no? this should be simple lol. same for def with svar as rhs. too good to be true *)
           | _ ->
             if is_pointer t then 
               let lhs = find_variable !env name in
@@ -291,7 +291,8 @@ let translate (SProgram(statements)) =
     | SDefine(_, A.Arrow(formals, retty), name, (_, e)) ->
       let ftype = ftype_from_t (A.Arrow(formals, retty)) in
       let f = L.define_function name ftype the_module in
-      let new_scope = {variables = StringMap.add name f !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+      let fptr = L.build_bitcast f (L.pointer_type (ftype_from_t (A.Arrow(formals, retty)))) "fptr" builder in
+      let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
         in let _ = env := new_scope in build_named_function name builder e
     | SDefine(s, typ, name, e) -> 
         let e' = expr builder e in
@@ -332,7 +333,7 @@ let translate (SProgram(statements)) =
     | SVar (_, name)                 -> 
       let llval = find_variable !env name in
       (match t with 
-      A.Arrow(formals, retty) -> L.build_bitcast llval (L.pointer_type (ftype_from_t (A.Arrow(formals, retty)))) name builder
+        A.Arrow(_, _) -> llval (* already a pointer to the function *)
       | _ -> 
         if is_llval_pointer llval then llval else L.build_load llval name builder)
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
@@ -445,8 +446,7 @@ let translate (SProgram(statements)) =
     | SThread body -> 
       let funtype  = A.Arrow([], A.Quack) in 
       let fdef     = expr builder (funtype, SLambda(false, A.Quack, [], body)) in 
-      let fptr     = L.build_bitcast fdef (L.pointer_type (L.function_type quack_t [||])) "fptr" builder in
-      let fcast    = L.build_bitcast fptr (L.pointer_type (L.function_type voidptr_t [|voidptr_t|])) "fptr_cast" builder in (* complying with pthread_create's signature *)
+      let fcast    = L.build_bitcast fdef (L.pointer_type (L.function_type voidptr_t [|voidptr_t|])) "fptr_cast" builder in (* complying with pthread_create's signature *)
       let pthread_t_ref = L.build_alloca pthread_t "pthread_t" builder in
       let _ = L.build_call pthread_create_func [|pthread_t_ref; L.const_null voidptr_t; fcast; L.const_null voidptr_t|] "" builder in
       L.build_load pthread_t_ref "pthread_t" builder
@@ -519,7 +519,6 @@ let translate (SProgram(statements)) =
 
       let fun_builder = L.builder_at_end context (L.entry_block fdef) in
 
-            
       (* unpacking the variables in the closure *)
 
       let _ = List.iteri (fun index _ -> 
@@ -564,7 +563,6 @@ let translate (SProgram(statements)) =
       
       let _ = pop_scope () in
       let _ = pop_function () in builder
-    | SVar(shared, name) -> raise (TODO "WE ARE ASSIGNING FUNCTIONS TO VARS")
     | _ -> raise (Failure "Internal Error: non-lambda expression passed to build_named_function")
   
   and build_main_function builder statements =
