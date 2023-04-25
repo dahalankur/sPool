@@ -27,7 +27,12 @@ and pthread_t  = L.pointer_type (L.named_struct_type context "pthread_t")
 
 let thread_t   = pthread_t 
 
-let ltype_of_typ = function
+let is_pointer = function 
+  A.List(_) -> true
+(* | A.Mutex   -> true *)
+| _         -> false
+
+let rec ltype_of_typ = function
   A.Int     -> i32_t
 | A.Bool    -> i1_t
 | A.Float   -> float_t
@@ -36,23 +41,21 @@ let ltype_of_typ = function
 | A.List(_) -> list_t
 | A.Thread  -> thread_t
 (* | A.Mutex   -> mutex_t *)
-(* | A.Arrow(ts, t) -> TODO: *)
+| A.Arrow(ts, t) -> ftype_from_t (A.Arrow(ts, t)) (* TODO: while dealing with return values from functions or params to functions, cast function types to fptrs instead to make llvm (and our svar, slambda, etc.) happy *)
 | _         -> raise (TODO "unimplemented ltype_of_typ for other types")
-
-let is_pointer = function 
-  A.List(_) -> true
-(* | A.Mutex   -> true *)
-| _         -> false
+and ftype_from_t = function
+  A.Arrow(formals, retty) -> 
+    let formal_types = Array.of_list (List.map (fun (t) -> if ((is_pointer t) || (is_function t)) then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
+    let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
+    let ret_llval = 
+      if ((is_pointer retty) || (is_function retty)) then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in L.function_type ret_llval formal_types
+| _ -> raise (Failure "Internal Error: ftype_from_t called on non-arrow type")
+and is_function = function A.Arrow(_, _) -> true | _ -> false
 
 let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type list_t)))  (* TODO: add for mutex later *)
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
-  (* TODO: potentially add the type here as well to make it easy to deal with closures...to make a closure struct, we need to know exactly what type of data we are adding to the struct sooooo maybe keeping track of all the types will help make it a bit easier *)
-  (* also for store -> we can do a static analysis and track when a function has been called in a map -> if it has, we just 
-     add instruction to return that value without making another function call. I think this can be done without having to 
-     do everything in LLVM IR.
-    *)
   shared : bool StringMap.t;
   parent : symbol_table option;
 }
@@ -281,34 +284,37 @@ let translate (SProgram(statements)) =
     | SAssign (name, ((t, _) as sx)) -> 
         let e' = expr builder sx in 
         (match t with 
-          A.Arrow(_, _) -> raise (TODO "Assigning function to variable") (* TODO: we just update the scope with the new pointer, no? this should be simple lol. same for def with svar as rhs. too good to be true *)
+          A.Arrow(_, _) ->
+            let fptr = e' in 
+            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+            in let _ = env := new_scope in builder
           | _ ->
             if is_pointer t then 
               let lhs = find_variable !env name in
               let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
             else
               let _  = L.build_store e' (find_variable !env name) builder in builder)
-    | SDefine(_, A.Arrow(formals, retty), name, (_, e)) ->
-      let ftype = ftype_from_t (A.Arrow(formals, retty)) in
-      let f = L.define_function name ftype the_module in
-      let fptr = L.build_bitcast f (L.pointer_type (ftype_from_t (A.Arrow(formals, retty)))) "fptr" builder in
-      let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
-        in let _ = env := new_scope in build_named_function name builder e
-    | SDefine(s, typ, name, e) -> 
-        let e' = expr builder e in
-        let _  = add_to_scope (s, e', name) builder typ in builder
+    | SDefine(_, A.Arrow(formals, retty), name, (t, e)) ->
+      (match e with
+        (* there is no function to build here; assign to pre-existing function ptr *)
+        SVar(_, rhs) -> let fptr = find_variable !env rhs in  
+          let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+            in let _ = env := new_scope in builder
+        | SCall(n, args) -> let fptr = expr builder (t , e) in 
+                            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+                            in let _ = env := new_scope in builder
+      | _ ->
+        let ftype = ftype_from_t (A.Arrow(formals, retty)) in
+        let f = L.define_function name ftype the_module in
+        let fptr = L.build_bitcast f (L.pointer_type ftype) (name ^ "_ptr") builder in
+        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+          in let _ = env := new_scope in build_named_function name builder e)
+    | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
     | SReturn ((t, _) as e) when is_pointer t ->
-      let e' = expr builder e in
-      let listval = L.build_load e' "listval" builder in
+      let listval = L.build_load (expr builder e) "listval" builder in
       let _ = L.build_ret listval builder in builder
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
-  and ftype_from_t = function
-      A.Arrow(formals, retty) -> 
-        let formal_types = Array.of_list (List.map (fun (t) -> if is_pointer t then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
-        let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
-        let ret_llval = if is_pointer retty then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in L.function_type ret_llval formal_types
-    | _ -> raise (Failure "Internal Error: ftype_from_t called on non-arrow type")
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
       let _    = L.build_store llval heap builder in heap
@@ -330,12 +336,9 @@ let translate (SProgram(statements)) =
         let listval = L.build_load list_ptr "listval" builder in
         L.build_call list_insert_func [| listval; L.const_int i32_t i; void_cast |] "" builder
       ) list_ptr (List.mapi (fun i llval -> (i, llval)) malloced_ptrs) in list_ptr
-    | SVar (_, name)                 -> 
-      let llval = find_variable !env name in
-      (match t with 
-        A.Arrow(_, _) -> llval (* already a pointer to the function *)
-      | _ -> 
-        if is_llval_pointer llval then llval else L.build_load llval name builder)
+    | SVar (_, name)                 -> let llval = find_variable !env name in 
+                                        if ((is_llval_pointer llval) || (is_function t)) then llval (* just a pointer to a val or a function, hence no need to load *)
+                                        else L.build_load llval name builder
     | SStringLiteral s               -> L.build_global_stringptr s "strlit" builder
     | SCall ("print", [e])           -> L.build_call printf_func [| str_format_str; (expr builder e) |] "print" builder
     | SCall ("println", [e])         -> L.build_call printf_func [| str_format_str_endline; (expr builder e) |] "println" builder
@@ -453,8 +456,7 @@ let translate (SProgram(statements)) =
     | (SLambda (store, retty, formals, _)) as e -> 
       let typ = A.Arrow((List.map fst formals), retty) in
       let name = generate_name () in
-      let def = SDefine(store, typ, name, (typ, e)) in
-      let _ = statement builder def in
+      let _ = statement builder (SDefine(store, typ, name, (typ, e))) in
       find_variable !env name
   and generate_name () = 
     let name = "#anon_" ^ (string_of_int !anon_counter) in
@@ -466,7 +468,11 @@ let translate (SProgram(statements)) =
     let _ = L.build_store p list_ptr builder in
     let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
       in env := new_scope
-  else 
+  else if is_function t then
+    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+      in let _ = env := new_scope 
+      in seen_functions := StringMap.add n true !seen_functions
+  else
     let _ = add_to_scope (s, p, n) builder t in ()
   
   (* creates a struct with field {llval}, fills it up with the provided
