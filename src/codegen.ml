@@ -295,12 +295,19 @@ let translate (SProgram(statements)) =
             else
               let _  = L.build_store e' (find_variable !env name) builder in builder)
     | SDefine(_, A.Arrow(formals, retty), name, (t, e)) ->
+      (* TODO: on a per-scope basis, maintain a map of all variables/function names to their original function names. Use this to then capture function in closures since we actually only need a function
+         name to call it from anywhere in the module 
+         
+         we will be looking at this separate map while building/unpacking closure to deal with functions. separate it from 
+         other llvalues.
+         
+         *)
       (match e with
         (* there is no function to build here; assign to pre-existing function ptr *)
         SVar(_, rhs) -> let fptr = find_variable !env rhs in  
           let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
             in let _ = env := new_scope in builder
-        | SCall(n, args) -> let fptr = expr builder (t , e) in 
+        | SCall(_, _) -> let fptr = expr builder (t , e) in 
                             let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
                             in let _ = env := new_scope in builder
       | _ ->
