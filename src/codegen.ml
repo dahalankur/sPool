@@ -56,6 +56,7 @@ let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type 
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
+  functionpointers : L.llvalue StringMap.t;
   shared : bool StringMap.t;
   parent : symbol_table option;
 }
@@ -77,7 +78,7 @@ let rec find_shared (scope : symbol_table) name =
     | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_shared)"))
 
 (* initial env *)
-let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None }
+let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; parent = None ; functionpointers = StringMap.empty }
 
 let seen_functions = ref StringMap.empty
 
@@ -87,26 +88,26 @@ let add_to_scope (s, v, n) builder t =
   if not s then
     let local = L.build_alloca (ltype_of_typ t) n builder in
     let _     = L.build_store v local builder in
-    let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+    let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent; functionpointers = !env.functionpointers}
       in env := new_scope 
   else
     if is_pointer t then (* this is for values that are passed by reference (aka raw pointers) *)
       let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let list  = L.build_load v n builder in
       let _     = L.build_store list local builder in
-      let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+      let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
     else
       let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let heap  = L.build_malloc (ltype_of_typ t) n builder in
       let _     = L.build_store heap local builder in
       let _     = L.build_store v heap builder in
-      let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+      let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
 
 let depth = ref 0
 let push_scope () = 
-  let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env)}
+  let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env); functionpointers = StringMap.empty}
   in let _ = depth := !depth + 1 in env := new_scope
 
 let pop_scope () = 
@@ -157,13 +158,12 @@ let translate (SProgram(statements)) =
   (* ----------- end of stack-related bookkeeping functions ----------- *)
 
   let list_of_llvals_n_hops_from_scope (scope : symbol_table) hops builder = 
-    let curr_depth = !depth in
     let rec helper acc curr_scope remaining_hops = 
       if (remaining_hops < 0) then raise (Failure "Internal Compiler Error: should not happen in list_of_llvals_n_hops_from_scope; scope is not correct") else
       (match curr_scope.parent with 
         None -> acc @ (StringMap.bindings curr_scope.variables)
       | Some(p) -> if (remaining_hops = 0) then (acc @ (StringMap.bindings curr_scope.variables)) else (helper (acc @ (StringMap.bindings curr_scope.variables)) p (remaining_hops - 1)))
-    in (helper [] scope (curr_depth - hops), builder) in
+    in (helper [] scope (!depth - hops), builder) in
   
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
   let list_of_llvals (scope : symbol_table) builder = 
@@ -180,8 +180,21 @@ let translate (SProgram(statements)) =
       if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
       if (find_shared !env name) then (name, llval) :: acc
       else (name, L.build_load llval name builder) :: acc)
-      [] list_llvals)
-    in (result, builder) in
+      [] list_llvals) in 
+    (result, builder) in 
+  
+    let list_of_fptrs (scope : symbol_table) builder =
+      let rec helper acc curr_scope = 
+        (match curr_scope.parent with 
+          None -> acc @ (StringMap.bindings curr_scope.functionpointers)
+        | Some(p) -> helper (acc @ (StringMap.bindings curr_scope.functionpointers)) p)
+      in 
+      let list_fptrs = helper [] scope in
+      let result = List.rev (List.fold_left (fun acc bs -> bs :: acc) [] list_fptrs)
+      in (result, builder) in
+
+  (* ----------- end of stack-related bookkeeping functions ----------- *)
+
 
   (* ----- start of builtin function declarations ----- *)
 
@@ -300,7 +313,7 @@ let translate (SProgram(statements)) =
         (match t with 
           A.Arrow(_, _) ->
             let fptr = e' in 
-            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
             in let _ = env := new_scope in builder
           | _ ->
             if is_pointer t then 
@@ -312,16 +325,16 @@ let translate (SProgram(statements)) =
       (match e with
         (* there is no function to build here; assign to pre-existing function ptr *)
         SVar(_, rhs) -> let fptr = find_variable !env rhs in  
-          let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+          let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
             in let _ = env := new_scope in builder
         | SCall(_, _) -> let fptr = expr builder (t , e) in 
-                            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+                            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
                             in let _ = env := new_scope in builder
       | _ ->
         let ftype = ftype_from_t (A.Arrow(formals, retty)) in
         let f = L.define_function name ftype the_module in
         let fptr = L.build_bitcast f (L.pointer_type ftype) (name ^ "_ptr") builder in
-        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent}
+        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
           in let _ = env := new_scope in build_named_function name builder e)
     | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
@@ -480,10 +493,10 @@ let translate (SProgram(statements)) =
   if is_pointer t then 
     let list_ptr = L.build_alloca (L.pointer_type (ltype_of_typ t)) "formal_listptr" builder in
     let _ = L.build_store p list_ptr builder in
-    let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+    let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent; functionpointers = !env.functionpointers}
       in env := new_scope
   else if is_function t then
-    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
+    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
       in let _ = env := new_scope 
       in seen_functions := StringMap.add n true !seen_functions
   else
@@ -521,6 +534,15 @@ let translate (SProgram(statements)) =
     SLambda (_, retty, formals, body) ->
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
+      let (fptrs, builder) = list_of_fptrs !env builder in
+      let fptrs = List.filter (fun (n, _) -> not (String.equal n name)) fptrs in
+
+      let struct_of_fptrs = List.map (struct_of_llval name builder) fptrs in 
+      
+      let all_structs = dumped_scope @ struct_of_fptrs in
+      let non_fptr_bound = List.length dumped_scope in
+
+      let dumped_scope = all_structs in
 
       let dumped_scope_tys = List.map L.type_of dumped_scope in
       let _ = L.struct_set_body closure_struct (Array.of_list (dumped_scope_tys)) false in 
@@ -531,7 +553,7 @@ let translate (SProgram(statements)) =
         let ith_struct = L.build_struct_gep global_closure_struct index "" builder in
         let _ = L.build_store dumped_llval ith_struct builder in
       index + 1) 0 dumped_scope in ();
-      
+
       (* build function body *)
       let fdef = find_variable !env name in
       let _ = push_function fdef in
@@ -560,13 +582,18 @@ let translate (SProgram(statements)) =
 
         let shared_and_not_list = is_shared && (not is_list) in
 
-        let llval_local = L.build_alloca (L.type_of llval) (var_name ^ "_ptr") fun_builder in
-        let _ = L.build_store llval llval_local fun_builder in
+        if (index < non_fptr_bound) then
+          let llval_local = L.build_alloca (L.type_of llval) (var_name ^ "_ptr") fun_builder in
+          let _ = L.build_store llval llval_local fun_builder in
 
-        let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else llval_local in
+          let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else llval_local in
 
-        let _ = let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent}
-        in env := new_scope in ()) dumped_scope in 
+          let _ = let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent; functionpointers = !env.functionpointers} in
+          env := new_scope in ()
+        else
+           (* we are unpacking captured fptrs here now *)
+          let _ = let new_scope = {variables = StringMap.add var_name llval !env.variables; shared = StringMap.add var_name is_shared !env.shared; parent = !env.parent; functionpointers = !env.functionpointers} in
+          env := new_scope in ()) dumped_scope in
       
       if List.length formals > 0 then
         (* add params to scope *)
@@ -580,8 +607,7 @@ let translate (SProgram(statements)) =
          scope to capture its closure   
       *)
       let _ = hops_to_parent_function := !depth in 
-
-
+    
       (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
       let instr = if retty = A.Quack then L.build_ret_void else L.build_ret (L.const_int i32_t 0) in
