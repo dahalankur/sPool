@@ -25,4 +25,4 @@ $(EXEC): toplevel.ml parser.mly scanner.mll ast.ml semant.ml sast.ml codegen.ml
 
 clean:
 	@ocamlbuild -clean
-	@rm -f *.o *.s *.ll
+	@rm -f *.o *.s *.ll *.exe

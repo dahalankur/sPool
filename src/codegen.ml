@@ -522,11 +522,6 @@ let translate (SProgram(statements)) =
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
 
-      (* print dumped scope for this named function *)
-      (* let _ = print_endline ("dumped scope for " ^ name ^ ":") in
-      let _ = List.iter (fun llval -> print_endline (L.string_of_llvalue llval)) dumped_scope in *)
-
-   
       let dumped_scope_tys = List.map L.type_of dumped_scope in
       let _ = L.struct_set_body closure_struct (Array.of_list (dumped_scope_tys)) false in 
       let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
