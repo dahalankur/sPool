@@ -301,6 +301,10 @@ let translate (SProgram(statements)) =
          we will be looking at this separate map while building/unpacking closure to deal with functions. separate it from 
          other llvalues.
          
+         basically, for each parameter passed, we will rename it to the original 
+         name of the function. then a simple find_variable check will always 
+         ensure the call works for that function
+
          *)
       (match e with
         (* there is no function to build here; assign to pre-existing function ptr *)

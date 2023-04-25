@@ -3,10 +3,11 @@ def int square (int x):
 ;
 
  def quack hof():
-     println(int_to_string(square(2)))
      def quack no():
          println("no")
          return;
+     println(int_to_string(square(2)))
+     no()
      return;
 
 
