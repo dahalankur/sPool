@@ -104,15 +104,16 @@ let add_to_scope (s, v, n) builder t =
       let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; parent = !env.parent}
         in env := new_scope
 
+let depth = ref 0
 let push_scope () = 
   let new_scope = {variables = StringMap.empty; shared = StringMap.empty; parent = Some(!env)}
-  in env := new_scope
+  in let _ = depth := !depth + 1 in env := new_scope
 
 let pop_scope () = 
   let parent_scope = match !env.parent with 
       Some(parent) -> parent
     | _            -> raise (Failure "Internal Error: should not happen in pop_scope; should have been caught in semantic analysis")
-  in env := parent_scope
+  in let _ = depth := !depth - 1 in env := parent_scope
 
 let translate (SProgram(statements)) = 
   let the_module = L.create_module context "sPool" in
@@ -145,8 +146,24 @@ let translate (SProgram(statements)) =
   let pop_function   () = S.pop      !curr_function in
   let is_stack_empty () = S.is_empty !curr_function in
 
+  (* if we are a nested function, how many hops are we away from our parent 
+     function in terms of jumps in the symbol table? 
+  *)
+  let hops_to_parent_function = ref 0 in 
+
   (* if top is stack is something other than "main", we are generating a nested function *)
-  let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in 
+  let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in
+
+  (* ----------- end of stack-related bookkeeping functions ----------- *)
+
+  let list_of_llvals_n_hops_from_scope (scope : symbol_table) hops builder = 
+    let curr_depth = !depth in
+    let rec helper acc curr_scope remaining_hops = 
+      if (remaining_hops < 0) then raise (Failure "Internal Compiler Error: should not happen in list_of_llvals_n_hops_from_scope; scope is not correct") else
+      (match curr_scope.parent with 
+        None -> acc @ (StringMap.bindings curr_scope.variables)
+      | Some(p) -> if (remaining_hops = 0) then (acc @ (StringMap.bindings curr_scope.variables)) else (helper (acc @ (StringMap.bindings curr_scope.variables)) p (remaining_hops - 1)))
+    in (helper [] scope (curr_depth - hops), builder) in
   
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
   let list_of_llvals (scope : symbol_table) builder = 
@@ -157,17 +174,14 @@ let translate (SProgram(statements)) =
     in 
     (* prevent nested functions from capturing old, stale scope. Nested functions need to only look at their current parent 
        since their parent will have captured everything and added to their scope by this point anyway *)
-    let list_llvals = if (is_nested_fun ()) then (StringMap.bindings scope.variables) else (helper [] scope) in 
+    let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env !hops_to_parent_function builder) else (helper [] scope, builder) in 
     let result = List.rev (List.fold_left (fun acc (name, llval) -> 
       if StringMap.mem name !seen_functions then acc else 
       if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
       if (find_shared !env name) then (name, llval) :: acc
       else (name, L.build_load llval name builder) :: acc)
       [] list_llvals)
-    in (result, builder) in 
-  
-  (* ----------- end of stack-related bookkeeping functions ----------- *)
-
+    in (result, builder) in
 
   (* ----- start of builtin function declarations ----- *)
 
@@ -295,17 +309,6 @@ let translate (SProgram(statements)) =
             else
               let _  = L.build_store e' (find_variable !env name) builder in builder)
     | SDefine(_, A.Arrow(formals, retty), name, (t, e)) ->
-      (* TODO: on a per-scope basis, maintain a map of all variables/function names to their original function names. Use this to then capture function in closures since we actually only need a function
-         name to call it from anywhere in the module 
-         
-         we will be looking at this separate map while building/unpacking closure to deal with functions. separate it from 
-         other llvalues.
-         
-         basically, for each parameter passed, we will rename it to the original 
-         name of the function. then a simple find_variable check will always 
-         ensure the call works for that function
-
-         *)
       (match e with
         (* there is no function to build here; assign to pre-existing function ptr *)
         SVar(_, rhs) -> let fptr = find_variable !env rhs in  
@@ -519,6 +522,11 @@ let translate (SProgram(statements)) =
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
 
+      (* print dumped scope for this named function *)
+      (* let _ = print_endline ("dumped scope for " ^ name ^ ":") in
+      let _ = List.iter (fun llval -> print_endline (L.string_of_llvalue llval)) dumped_scope in *)
+
+   
       let dumped_scope_tys = List.map L.type_of dumped_scope in
       let _ = L.struct_set_body closure_struct (Array.of_list (dumped_scope_tys)) false in 
       let global_closure_struct = L.define_global ("global_" ^ name ^ "_closure#") (L.const_null closure_struct) the_module in
@@ -572,6 +580,12 @@ let translate (SProgram(statements)) =
           let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
           let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in ()
       else ();
+
+      (* update base scope here so any neseted functions can walk upto this
+         scope to capture its closure   
+      *)
+      let _ = hops_to_parent_function := !depth in 
+
 
       (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
