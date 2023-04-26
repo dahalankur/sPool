@@ -175,19 +175,16 @@ let translate (SProgram(statements)) =
     in 
     (* prevent nested functions from capturing old, stale scope. Nested functions need to only look at their current parent 
        since their parent will have captured everything and added to their scope by this point anyway *)
-
-    (* print environment variables here *)
-    (* let _ = print_endline ("depth: " ^ (string_of_int !depth)) in
-    let _ = StringMap.iter (fun k v -> print_endline ("key: " ^ k ^ " value: " ^ (L.string_of_llvalue v))) !env.variables in *)
-
     let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env (!depth - 1) builder) else (helper [] scope, builder) in 
+    let seen_names = ref StringMap.empty in
     let result = List.rev (List.fold_left (fun acc (name, llval) -> 
       if StringMap.mem name !seen_functions then acc else 
+      if StringMap.mem name !seen_names then acc else
+      let _ = seen_names := StringMap.add name true !seen_names in
       if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
       if (find_shared !env name) then (name, llval) :: acc
-      else (name, L.build_load llval name builder) :: acc) (* TODO: here is the issue, we are loading old value in 3-nested function *)
-      [] list_llvals) in 
-    (result, builder) in 
+      else (name, L.build_load llval name builder) :: acc)
+      [] list_llvals) in (result, builder) in 
   
     let list_of_fptrs (scope : symbol_table) builder =
       let rec helper acc curr_scope = 
@@ -538,18 +535,13 @@ let translate (SProgram(statements)) =
         in  answer) [] llval_bindings in (List.map (struct_of_llval fname builder) llval_bindings, builder)
   and build_named_function name builder = function
     SLambda (_, retty, formals, body) ->
-(* 
-      let _ = print_endline ("\n\nbuilding function " ^ name) in
-      let _ = print_endline ("Current depth = " ^ (string_of_int !depth)) in
-      let _ = print_endline ("Is nested? " ^ (string_of_bool (is_nested_fun ()))) in *)
 
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
+
       let (fptrs, builder) = list_of_fptrs !env builder in
       let fptrs = List.filter (fun (n, _) -> not (String.equal n name)) fptrs in
-
       let struct_of_fptrs = List.map (struct_of_llval name builder) fptrs in 
-      
       let all_structs = dumped_scope @ struct_of_fptrs in
       let non_fptr_bound = List.length dumped_scope in
 
@@ -613,11 +605,6 @@ let translate (SProgram(statements)) =
           let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
           let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in ()
       else ();
-
-      (* update base scope here so any neseted functions can walk upto this
-         scope to capture its closure   
-      *)
-      (* let _ = hops_to_parent_function := !depth in  *)
     
       (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
@@ -660,4 +647,4 @@ in
 build_main_function builder statements;
 
 (* Return the final module *)
-the_module
+the_module;
