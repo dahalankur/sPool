@@ -339,10 +339,10 @@ let translate (SProgram(statements)) =
       (match e with
         (* there is no function to build here; assign to pre-existing function ptr *)
         SVar(_, rhs) -> let fptr = find_variable !env rhs in  
-          let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
+          let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (find_stored !env rhs) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
             in let _ = env := new_scope in builder
-        | SCall(_, _) -> let fptr = expr builder (t , e) in 
-                            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
+        | SCall(f, _) -> let fptr = expr builder (t , e) in 
+                            let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (find_stored !env f) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
                             in let _ = env := new_scope in builder
       | SLambda (store, _, _, _) ->
         let ftype = ftype_from_t (A.Arrow(formals, retty)) in
@@ -475,7 +475,7 @@ let translate (SProgram(statements)) =
         let _ = L.build_store new_listlit head builder in
         listptr
       else
-        if is_storefunc then 
+        (* if is_storefunc then 
         let resultval = L.build_call fdef (Array.of_list llargs) result builder in
         let curr_index = L.build_struct_gep global_store_struct 0 "" builder in
         let full_indicator = L.build_struct_gep global_store_struct 1 "" builder in
@@ -483,7 +483,7 @@ let translate (SProgram(statements)) =
         let current_elem = L.build_struct_gep elem_array curr_index "" builder in
         let new_store_elem_struct = 
         let _ = L.build_store (*new struct*) current_elem builder in
-      else 
+      else  *)
         L.build_call fdef (Array.of_list llargs) result builder
 
     | SBinop (e1, op, e2) ->
@@ -551,7 +551,8 @@ let translate (SProgram(statements)) =
     let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
       in env := new_scope
   else if is_function t then
-    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
+    (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? *)
+    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n false !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
       in let _ = env := new_scope 
       in seen_functions := StringMap.add n true !seen_functions
   else
@@ -660,7 +661,7 @@ let translate (SProgram(statements)) =
           env := new_scope in ()
         else
            (* we are unpacking captured fptrs here now *)
-          let _ = let new_scope = {variables = StringMap.add var_name llval !env.variables; shared = StringMap.add var_name is_shared !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers} in
+          let _ = let new_scope = {variables = StringMap.add var_name llval !env.variables; shared = StringMap.add var_name is_shared !env.shared; stored = StringMap.add var_name (find_stored !env var_name) !env.stored; parent = !env.parent; functionpointers = !env.functionpointers} in
           env := new_scope in ()) dumped_scope in
       
       if List.length formals > 0 then
