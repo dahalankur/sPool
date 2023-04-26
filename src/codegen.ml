@@ -117,6 +117,7 @@ let add_to_scope (s, v, n) builder t =
         in env := new_scope
 
 let depth = ref 0
+
 let push_scope () = 
   let new_scope = {variables = StringMap.empty; shared = StringMap.empty; stored = StringMap.empty; parent = Some(!env); functionpointers = StringMap.empty}
   in let _ = depth := !depth + 1 in env := new_scope
@@ -161,7 +162,7 @@ let translate (SProgram(statements)) =
   (* if we are a nested function, how many hops are we away from our parent 
      function in terms of jumps in the symbol table? 
   *)
-  let hops_to_parent_function = ref 0 in 
+  (* let hops_to_parent_function = ref 0 in  *)
 
   (* if top is stack is something other than "main", we are generating a nested function *)
   let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in
@@ -174,7 +175,7 @@ let translate (SProgram(statements)) =
       (match curr_scope.parent with 
         None -> acc @ (StringMap.bindings curr_scope.variables)
       | Some(p) -> if (remaining_hops = 0) then (acc @ (StringMap.bindings curr_scope.variables)) else (helper (acc @ (StringMap.bindings curr_scope.variables)) p (remaining_hops - 1)))
-    in (helper [] scope (!depth - hops), builder) in
+    in (helper [] scope hops, builder) in
   
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
   let list_of_llvals (scope : symbol_table) builder = 
@@ -185,12 +186,17 @@ let translate (SProgram(statements)) =
     in 
     (* prevent nested functions from capturing old, stale scope. Nested functions need to only look at their current parent 
        since their parent will have captured everything and added to their scope by this point anyway *)
-    let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env !hops_to_parent_function builder) else (helper [] scope, builder) in 
+
+    (* print environment variables here *)
+    (* let _ = print_endline ("depth: " ^ (string_of_int !depth)) in
+    let _ = StringMap.iter (fun k v -> print_endline ("key: " ^ k ^ " value: " ^ (L.string_of_llvalue v))) !env.variables in *)
+
+    let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env (!depth - 1) builder) else (helper [] scope, builder) in 
     let result = List.rev (List.fold_left (fun acc (name, llval) -> 
       if StringMap.mem name !seen_functions then acc else 
       if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
       if (find_shared !env name) then (name, llval) :: acc
-      else (name, L.build_load llval name builder) :: acc)
+      else (name, L.build_load llval name builder) :: acc) (* TODO: here is the issue, we are loading old value in 3-nested function *)
       [] list_llvals) in 
     (result, builder) in 
   
@@ -597,7 +603,7 @@ let translate (SProgram(statements)) =
         let _ = L.struct_set_body store_struct [| L.i32_type context; L.i1_type context; store_elem_arrayty |] false in 
         let global_store_struct = L.define_global ("global_" ^ name ^ "_store#") (L.const_null store_struct) the_module in
         ()(*build array*)
-      else () in 
+      else () in
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
       let (fptrs, builder) = list_of_fptrs !env builder in
@@ -672,7 +678,7 @@ let translate (SProgram(statements)) =
       (* update base scope here so any neseted functions can walk upto this
          scope to capture its closure   
       *)
-      let _ = hops_to_parent_function := !depth in 
+      (* let _ = hops_to_parent_function := !depth in  *)
     
       (* build body *)
       let final_builder = List.fold_left statement fun_builder body in
