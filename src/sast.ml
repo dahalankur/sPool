@@ -7,8 +7,6 @@
 
 open Ast
 
-exception TODO of string (* remove when done *)
-
 type sexpr = typ * sx
 and sx =
   SLiteral of int

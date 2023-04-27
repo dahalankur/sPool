@@ -23,14 +23,16 @@ and nodeptr_t  = L.pointer_type (L.named_struct_type context "Node")
 
 let list_t     = L.pointer_type (L.struct_type context [| voidptr_t; nodeptr_t |])
 and pthread_t  = L.pointer_type (L.named_struct_type context "pthread_t")
-(* and mutex_t    = L.pointer_type (L.named_struct_type context "pthread_mutex_t") *)
+and mutex_t    = L.pointer_type (L.named_struct_type context "pthread_mutex_t")
 
 let thread_t   = pthread_t 
 
 let is_pointer = function 
-  A.List(_) -> true
-(* | A.Mutex   -> true *)
+  A.List(_) | A.Mutex -> true
 | _         -> false
+
+let is_mutex = function
+  A.Mutex -> true | _ -> false
 
 let rec ltype_of_typ = function
   A.Int     -> i32_t
@@ -40,19 +42,19 @@ let rec ltype_of_typ = function
 | A.String  -> string_t
 | A.List(_) -> list_t
 | A.Thread  -> thread_t
-(* | A.Mutex   -> mutex_t *)
-| A.Arrow(ts, t) -> ftype_from_t (A.Arrow(ts, t)) (* TODO: while dealing with return values from functions or params to functions, cast function types to fptrs instead to make llvm (and our svar, slambda, etc.) happy *)
-| _         -> raise (TODO "unimplemented ltype_of_typ for other types")
+| A.Mutex   -> mutex_t
+| A.Arrow(ts, t) -> ftype_from_t (A.Arrow(ts, t))
+| A.Alpha   -> raise (Semant.SemanticError "Can not convert Alpha to lltype in codegen")
 and ftype_from_t = function
   A.Arrow(formals, retty) -> 
-    let formal_types = Array.of_list (List.map (fun (t) -> if ((is_pointer t) || (is_function t)) then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
+    let formal_types = Array.of_list (List.map (fun (t) -> if ((is_pointer t && (not (is_mutex t))) || (is_function t)) then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
     let formal_types = Array.of_list (List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types)) in
     let ret_llval = 
-      if ((is_pointer retty) || (is_function retty)) then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in L.function_type ret_llval formal_types
+      if (((is_pointer retty) || (is_function retty)) && (not (is_mutex retty))) then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in L.function_type ret_llval formal_types
 | _ -> raise (Failure "Internal Error: ftype_from_t called on non-arrow type")
 and is_function = function A.Arrow(_, _) -> true | _ -> false
 
-let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type list_t)))  (* TODO: add for mutex later *)
+let is_llval_pointer llval = (L.type_of llval = (L.pointer_type (L.pointer_type list_t))) 
 
 type symbol_table = {
   variables : L.llvalue StringMap.t;
@@ -103,11 +105,17 @@ let add_to_scope (s, v, n) builder t =
       in env := new_scope 
   else
     if is_pointer t then (* this is for values that are passed by reference (aka raw pointers) *)
-      let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
-      let list  = L.build_load v n builder in
-      let _     = L.build_store list local builder in
-      let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
-        in env := new_scope
+      if is_mutex t then
+        let local = L.build_alloca (ltype_of_typ t) n builder in
+        let _     = L.build_store v local builder in
+        let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
+          in env := new_scope
+      else
+        let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
+        let list  = L.build_load v n builder in
+        let _     = L.build_store list local builder in
+        let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
+          in env := new_scope
     else
       let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let heap  = L.build_malloc (ltype_of_typ t) n builder in
@@ -265,15 +273,15 @@ let translate (SProgram(statements)) =
   (* ----- start of thread related function declarations ----- *)
   let pthread_create_t          = L.function_type i32_t [| (L.pointer_type pthread_t); voidptr_t; (L.pointer_type (L.function_type voidptr_t [| voidptr_t |])); voidptr_t |] in 
   let pthread_join_t            = L.function_type i32_t [| pthread_t; (L.pointer_type voidptr_t) |] in
-  (* let pthread_mutex_init_t      = L.function_type (L.pointer_type mutex_t) [| |] in
+  let pthread_mutex_init_t      = L.function_type (L.pointer_type mutex_t) [| |] in
   let pthread_mutex_lock_t      = L.function_type i32_t [| mutex_t |] in
-  let pthread_mutex_unlock_t    = L.function_type i32_t [| mutex_t |] in *)
+  let pthread_mutex_unlock_t    = L.function_type i32_t [| mutex_t |] in
 
   let pthread_create_func       = L.declare_function "pthread_create" pthread_create_t the_module in 
   let pthread_join_func         = L.declare_function "pthread_join" pthread_join_t the_module in
-  (* let pthread_mutex_init_func   = L.declare_function "Mutex_init" pthread_mutex_init_t the_module in
+  let pthread_mutex_init_func   = L.declare_function "Mutex_init" pthread_mutex_init_t the_module in
   let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
-  let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in *)
+  let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in
   (* ----- end of thread related function declarations ----- *)
 
 
@@ -330,7 +338,7 @@ let translate (SProgram(statements)) =
             let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
             in let _ = env := new_scope in builder
           | _ ->
-            if is_pointer t then 
+            if is_pointer t && (not (is_mutex t)) then 
               let lhs = find_variable !env name in
               let _ = L.build_store (L.build_load e' "rhs" builder) lhs builder in builder
             else
@@ -352,7 +360,7 @@ let translate (SProgram(statements)) =
           in let _ = env := new_scope in build_named_function name builder e)
     | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
-    | SReturn ((t, _) as e) when is_pointer t ->
+    | SReturn ((t, _) as e) when (is_pointer t && (not (is_mutex t))) ->
       let listval = L.build_load (expr builder e) "listval" builder in
       let _ = L.build_ret listval builder in builder
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
@@ -417,14 +425,14 @@ let translate (SProgram(statements)) =
       let list = L.build_load e' "listval" builder in
       let value = L.build_call list_at_func [| list; (expr builder e2) |] "list_at" builder in
       let cast = 
-        if is_pointer t1 then 
-          L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder (* TODO: how do we deal with mutexes here? WHY ARE MUTEXES PASSED BY REFERENCE TO BEGIN WITH!? *)
+        if (is_pointer t1 && (not (is_mutex t))) then 
+          L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
       L.build_load cast "list_at" builder
     | SCall ("Thread_join", [e]) -> L.build_call pthread_join_func [| expr builder e; L.const_null (L.pointer_type voidptr_t) |] "" builder
-    (* | SCall ("Mutex", []) -> raise (TODO "Mutex")
-    | SCall ("Mutex_lock", [e]) -> let _ = L.build_call pthread_mutex_lock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_lock")
-    | SCall ("Mutex_unlock", [e]) -> let _ = L.build_call pthread_mutex_unlock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_unlock") *)
+    | SCall ("Mutex", []) -> L.build_load (L.build_call pthread_mutex_init_func [| |] "" builder) "mutex" builder
+    | SCall ("Mutex_lock", [e]) ->   L.build_call pthread_mutex_lock_func   [| expr builder e |] "" builder
+    | SCall ("Mutex_unlock", [e]) -> L.build_call pthread_mutex_unlock_func [| expr builder e |] "" builder
     | SCall (f, args) -> 
        let is_storefunc = find_stored !env f in 
       (* if is_storefunc then 
@@ -457,10 +465,9 @@ let translate (SProgram(statements)) =
     
 
       else  *)
-      (* TODO: deal with store here. If f has already been called with these args, generate instructions to atomically look into the store for the cached answer *)
       let fdef   = find_variable !env f in
       let retty  = L.return_type (L.element_type (L.type_of fdef)) in
-      let llargs = (List.map (fun ((t, _) as e) -> if is_pointer t then L.build_load (expr builder e) "ptrval" builder else expr builder e) args) in
+      let llargs = (List.map (fun ((t, _) as e) -> if (is_pointer t && (not (is_mutex t))) then L.build_load (expr builder e) "ptrval" builder else expr builder e) args) in
       let result = if retty = quack_t then "" else f ^ "_result" in 
       if retty = L.pointer_type list_t then 
         (* special case when lists are being returned from functions *)
@@ -490,7 +497,7 @@ let translate (SProgram(statements)) =
       let (t, _) = e1
       and e1'    = expr builder e1
       and e2'    = expr builder e2 in
-      if t = A.Float (* TODO: double check this matches our semantics for binops and unop from the LRM *)
+      if t = A.Float
       then (match op with 
         A.Add     -> L.build_fadd
       | A.Sub     -> L.build_fsub
@@ -510,7 +517,7 @@ let translate (SProgram(statements)) =
       | A.Sub     -> L.build_sub
       | A.Mult    -> L.build_mul
       | A.Div     -> L.build_sdiv
-      | A.Mod     -> L.build_srem (* TODO: srem or urem? mention in LRM that the srem is a tad bit different than traditional mod operations. see LLVM docs for more info *)
+      | A.Mod     -> L.build_srem
       | A.And     -> L.build_and
       | A.Or      -> L.build_or
       | A.Equal   -> L.build_icmp L.Icmp.Eq
@@ -546,10 +553,16 @@ let translate (SProgram(statements)) =
     name
   and add_params_to_scope (s, p, n) builder t = 
   if is_pointer t then 
-    let list_ptr = L.build_alloca (L.pointer_type (ltype_of_typ t)) "formal_listptr" builder in
-    let _ = L.build_store p list_ptr builder in
-    let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
-      in env := new_scope
+    if is_mutex t then
+      let local = L.build_alloca (ltype_of_typ t) n builder in
+      let _     = L.build_store p local builder in
+      let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
+        in env := new_scope
+    else
+      let list_ptr = L.build_alloca (L.pointer_type (ltype_of_typ t)) "formal_listptr" builder in
+      let _ = L.build_store p list_ptr builder in
+      let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
+        in env := new_scope
   else if is_function t then
     (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? we could maintain a global reverse map of function pointer to list of names that point to it...but is this overkill? *)
     let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n false !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
