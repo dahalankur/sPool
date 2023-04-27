@@ -84,7 +84,7 @@ let rec find_stored (scope : symbol_table) name =
     with Not_found ->
       match scope.parent with
         Some(parent) -> find_stored parent name
-      | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_stored)"))
+      | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_stored) for " ^ name))
 
 (* initial env *)
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; stored = StringMap.empty; parent = None ; functionpointers = StringMap.empty }
@@ -551,7 +551,7 @@ let translate (SProgram(statements)) =
     let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
       in env := new_scope
   else if is_function t then
-    (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? *)
+    (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? we could maintain a global reverse map of function pointer to list of names that point to it...but is this overkill? *)
     let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n false !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
       in let _ = env := new_scope 
       in seen_functions := StringMap.add n true !seen_functions
@@ -669,6 +669,7 @@ let translate (SProgram(statements)) =
         let _ = List.iter2 (fun (t, n) p -> 
           let () = L.set_value_name n p in
           let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
+          (* let is_stored = if is_function t then find_stored !env n else false in *)
           let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in ()
       else ();
     
