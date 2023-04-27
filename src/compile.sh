@@ -23,14 +23,26 @@ then
     fi
 fi
 
+import=0
 
 # check arguments
-if [ $# -ne 2 ]; then
-    echo "Usage: compile.sh <file.sP> <exec>"
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+    echo "Usage: compile.sh [-stdlib] <file.sP> <exec>"
     exit 1
 fi
 
 sP_file=$1
+exec=$2
+
+if [ $# -eq 3 ] && [ "$1" = "-stdlib" ]; then
+    import=1
+    sP_file=$2
+    exec=$3
+elif [ $# -eq 3 ] && [ "$1" != "-stdlib" ]; then
+    echo "Usage: compile.sh [-stdlib] <file.sP> <exec>"
+    exit 1
+fi
+
 if [ ! -f "$sP_file" ]; then
     echo "File $sP_file does not exist"
     exit 1
@@ -38,7 +50,6 @@ fi
 
 sP_file_no_ext="${sP_file%.*}"
 sP_file_no_ext="${sP_file_no_ext##*/}"
-exec=$2
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # run make to compile the compiler
@@ -46,7 +57,11 @@ rm -f "$script_dir"/*.o
 make -C "$script_dir"
 
 # run the compiler on the sP file
-"$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
+if [ $import -eq 1 ]; then
+    "$script_dir"/toplevel.native -i "$sP_file" > "$sP_file_no_ext".ll
+else
+    "$script_dir"/toplevel.native "$sP_file" > "$sP_file_no_ext".ll
+fi
 
 # compile the llvm file to assembly
 "$LLC" -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s

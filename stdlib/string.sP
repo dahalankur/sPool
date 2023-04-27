@@ -1,3 +1,7 @@
+##########################################
+# start of sPool String Standard Library #
+##########################################
+
 def string String_rev(string word):
     int    len = String_len(word)
     string rev = ""
@@ -28,3 +32,7 @@ def int String_find(string haystack, string needle):
     ;
     
     return answer;
+
+########################################
+# end of sPool String Standard Library #
+########################################
