@@ -121,8 +121,15 @@ def main(to_test):
     tests_dir = os.path.dirname(os.path.realpath(__file__)) + f"/../tests/{base_test_dir}/"
 
     if to_test[0] == "all":
-        print("Running all tests\n")
-        tests = glob.glob(tests_dir + "*")
+        if to_test[1] == "_":
+            print("Running all tests\n")
+            tests = glob.glob(tests_dir + "*")
+        else:
+            if os.path.exists(tests_dir + to_test[1]):
+                tests = glob.glob(tests_dir + to_test[1])
+            else:
+                print(f"\033[91mThe requested directory does not exist.\033[0m\n")
+                sys.exit(1)
     else:
         if os.path.exists(tests_dir + to_test[0] + "/" + to_test[1] + ".sP"):
             filename = tests_dir + to_test[0] + "/" + to_test[1] + ".sP"
