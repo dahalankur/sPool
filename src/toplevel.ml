@@ -2,7 +2,7 @@
    The top level driver program for the sPool compiler.
    Allows the user to select which stage of the compiler to run, and
    which file to compile.
-   Usage: ./toplevel.native [-a|-l|-s|-c] [file.sP]
+   Usage: ./toplevel.native [-a|-l|-s|-c|i] [file.sP]
 
    Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
 *)
@@ -35,7 +35,8 @@ let () =
           let stdlib_list = open_in "../stdlib/list.sP" in
           let stdlib_string = open_in "../stdlib/string.sP" in
 
-          let temp_file = open_out "temp.sP" in
+          let temp_file_name = "__temp__.sP_" in
+          let temp_file = open_out temp_file_name in
           
           (* copy contents of list.sP and string.sP to temp.sP *)
           let rec copy_file_to_temp_file file =
@@ -48,8 +49,6 @@ let () =
           copy_file_to_temp_file stdlib_list;
           copy_file_to_temp_file stdlib_string;
           
-          (* copy contents of input file to temp.sP *)
-          (* read contents of !channel into a variable *)
           let input_file_string = ref "" in
           let rec read_input_file file =
             try
@@ -59,6 +58,7 @@ let () =
             with End_of_file -> ()
           in
           read_input_file !channel;
+          
           (* write contents of input file to temp.sP *)
           Printf.fprintf temp_file "%s" !input_file_string;
           close_in !channel;
@@ -66,11 +66,11 @@ let () =
           close_in stdlib_string;
           close_out temp_file;
 
-          let temp_lexbuf = Lexing.from_channel (open_in "temp.sP") in
+          let temp_lexbuf = Lexing.from_channel (open_in temp_file_name) in
           let m = Codegen.translate (Semant.check (Parser.program Scanner.token temp_lexbuf)) in Llvm_analysis.assert_valid_module m;
           print_endline (Llvm.string_of_llmodule m);
 
-          (* delete temp.sP *)
-          Sys.remove "temp.sP";
+          (* delete temp file *)
+          Sys.remove temp_file_name;
 
         | _ -> raise (Failure "Internal error: no action selected")
