@@ -58,7 +58,7 @@ type symbol_table = {
   variables : L.llvalue StringMap.t;
   functionpointers : L.llvalue StringMap.t;
   shared : bool StringMap.t;
-  stored : bool StringMap.t;
+  stored : (L.llvalue option) StringMap.t;
   parent : symbol_table option;
 }
 
@@ -348,8 +348,7 @@ let translate (SProgram(statements)) =
         let ftype = ftype_from_t (A.Arrow(formals, retty)) in
         let f = L.define_function name ftype the_module in
         let fptr = L.build_bitcast f (L.pointer_type ftype) (name ^ "_ptr") builder in
-        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name store !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
-          in let _ = env := new_scope in build_named_function name builder e)
+          build_named_function name builder fptr e)
     | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
     | SReturn ((t, _) as e) when is_pointer t ->
@@ -426,7 +425,9 @@ let translate (SProgram(statements)) =
     | SCall ("Mutex_lock", [e]) -> let _ = L.build_call pthread_mutex_lock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_lock")
     | SCall ("Mutex_unlock", [e]) -> let _ = L.build_call pthread_mutex_unlock_func [| L.build_load (expr builder e) "mutex" builder |] "" builder in raise (TODO "Mutex_unlock") *)
     | SCall (f, args) -> 
-       let is_storefunc = find_stored !env f in 
+       let global_store_struct_option = find_stored !env f in 
+       let is_storefunc = (match global_store_struct_option with Some a -> true | None -> false)
+      in 
       (* if is_storefunc then 
           let predicate = ll_lookup 
         let the_function   = the_function () in
@@ -475,16 +476,25 @@ let translate (SProgram(statements)) =
         let _ = L.build_store new_listlit head builder in
         listptr
       else
-        (* if is_storefunc then 
-        let resultval = L.build_call fdef (Array.of_list llargs) result builder in
-        let curr_index = L.build_struct_gep global_store_struct 0 "" builder in
-        let full_indicator = L.build_struct_gep global_store_struct 1 "" builder in
-        let elem_array = L.build_struct_gep global_store_struct 2 "" builder in
-        let current_elem = L.build_struct_gep elem_array curr_index "" builder in
-        let new_store_elem_struct = 
-        let _ = L.build_store (*new struct*) current_elem builder in
-      else  *)
-        L.build_call fdef (Array.of_list llargs) result builder
+        if is_storefunc then 
+          let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (raise (Failure "shouldn't happen"))) in
+          let resultval = L.build_call fdef (Array.of_list llargs) result builder in
+          (*  llvalue -> string -> llbuilder -> llvalue *)
+          (*let global_store_struct = (match L.lookup_global (f ^ "_store_struct#") the_module with 
+                                      Some a -> a 
+                                    | None -> raise (Failure ("Internal Error: " ^ f ^ "_store_struct#"))) in*)
+          let curr_index = L.build_struct_gep global_store_struct 0 "" builder in
+          let full_indicator = L.build_struct_gep global_store_struct 1 "" builder in
+          let elem_array = L.build_struct_gep global_store_struct 2 "" builder in
+          let current_elem = L.build_struct_gep elem_array 0 "" builder in
+          (* store result *)
+          let param_pointer = L.build_struct_gep current_elem 0 "" builder in
+          let result_pointer = L.build_struct_gep current_elem 1 "" builder in
+          (*let _ = L.build_store (*new struct*) current_elem builder in *)
+          resultval
+          (* update curr_index and full_indicator TODO *)
+        else  
+          L.build_call fdef (Array.of_list llargs) result builder
 
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
@@ -552,7 +562,7 @@ let translate (SProgram(statements)) =
       in env := new_scope
   else if is_function t then
     (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? we could maintain a global reverse map of function pointer to list of names that point to it...but is this overkill? *)
-    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n false !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
+    let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n None !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
       in let _ = env := new_scope 
       in seen_functions := StringMap.add n true !seen_functions
   else
@@ -586,7 +596,7 @@ let translate (SProgram(statements)) =
         let has_seen = StringMap.mem n !seen_names in
         let answer = if has_seen then acc else let _ = seen_names := StringMap.add n true !seen_names in (n, v) :: acc
         in  answer) [] llval_bindings in (List.map (struct_of_llval fname builder) llval_bindings, builder)
-  and build_named_function name builder = function
+  and build_named_function name builder fptr = function
     SLambda (store, retty, formals, body) ->
       let _ = if store then 
         let formal_lltys = List.map (fun (t, _) -> ltype_of_typ t) formals in
@@ -600,8 +610,14 @@ let translate (SProgram(statements)) =
         (* a store struct contains { latest_index, full_marker, element array } *)
         let _ = L.struct_set_body store_struct [| L.i32_type context; L.i1_type context; store_elem_arrayty |] false in 
         let global_store_struct = L.define_global ("global_" ^ name ^ "_store#") (L.const_null store_struct) the_module in
+        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (Some global_store_struct) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
+        in let _ = env := new_scope in
         ()(*build array*)
-      else () in
+      else 
+        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name None !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
+        in let _ = env := new_scope in
+        ()
+      in 
       let closure_struct = L.named_struct_type context (name ^ "_closure_struct#") in
       let (dumped_scope, builder) = dump_scope name builder in
 
