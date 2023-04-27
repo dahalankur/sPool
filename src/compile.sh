@@ -2,7 +2,7 @@
 
 # This script is used to compile a given sP file to the executable, 
 # generating any intermediate files in the process
-# Usage: compile.sh <sP file> <output file>
+# Usage: compile.sh [-stdlib] <sP file> <output file>
 # Note: This script generates the .ll and .s files in the current working 
 #       directory and not in the directory where the sP file is present
 #
