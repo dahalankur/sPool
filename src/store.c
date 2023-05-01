@@ -3,7 +3,7 @@
 #include <pthread.h>
 
 #define nullptr NULL
-#define DEBUG 1
+#define DEBUG 0
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 

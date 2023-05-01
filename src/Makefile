@@ -9,7 +9,7 @@ CXX  := gcc
 
 .PHONY: all clean testparser testcodegen
 
-all: $(EXEC) builtins.o list.o
+all: $(EXEC) builtins.o list.o store.o
 
 testparser: $(EXEC) runtests.py
 	@python3 runtests.py lexerparser all _
