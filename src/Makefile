@@ -7,9 +7,11 @@
 EXEC := toplevel.native
 CXX  := gcc
 
-.PHONY: all clean testparser testcodegen
+.PHONY: all clean testparser testcodegen testall
 
 all: $(EXEC) builtins.o list.o store.o
+
+testall: testparser testcodegen
 
 testparser: $(EXEC) runtests.py
 	@python3 runtests.py lexerparser all _
