@@ -186,7 +186,7 @@ let translate (SProgram(statements)) =
     in (helper [] scope hops, builder) in
   
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
-  let list_of_llvals (scope : symbol_table) builder = 
+  let rec list_of_llvals (scope : symbol_table) builder = 
     let rec helper acc curr_scope = 
       (match curr_scope.parent with 
         None -> acc @ (StringMap.bindings curr_scope.variables)
@@ -196,16 +196,18 @@ let translate (SProgram(statements)) =
        since their parent will have captured everything and added to their scope by this point anyway *)
     let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env (!depth - 1) builder) else (helper [] scope, builder) in 
     let seen_names = ref StringMap.empty in
+    let (fptrs, builder) = list_of_fptrs !env builder in
+    let fptrs = List.map fst fptrs in 
     let result = List.rev (List.fold_left (fun acc (name, llval) -> 
+      if List.mem name fptrs then acc else 
       if StringMap.mem name !seen_functions then acc else 
       if StringMap.mem name !seen_names then acc else
       let _ = seen_names := StringMap.add name true !seen_names in
       if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
       if (find_shared !env name) then (name, llval) :: acc
       else (name, L.build_load llval name builder) :: acc)
-      [] list_llvals) in (result, builder) in 
-  
-    let list_of_fptrs (scope : symbol_table) builder =
+      [] list_llvals) in (result, builder)
+and list_of_fptrs (scope : symbol_table) builder =
       let rec helper acc curr_scope = 
         (match curr_scope.parent with 
           None -> acc @ (StringMap.bindings curr_scope.functionpointers)
@@ -268,10 +270,12 @@ let translate (SProgram(statements)) =
   let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
 
-  (* let store_val          = L.function_type voidptr_t [| ??? |] in
-  let list_at_func       = L.declare_function "Store_val" list_at_t the_module in *)
-  (* ----- end of builtin function declarations ----- *)
+  let store_insert_t     = L.function_type quack_t [| (L.pointer_type (L.named_struct_type context "Store")); i32_t; i32_t |] in
+  let store_insert_func  = L.declare_function "Store_insert" store_insert_t the_module in
 
+  let store_lookup_t     = L.function_type i32_t [| (L.pointer_type (L.named_struct_type context "Store")); i32_t |] in
+  let store_lookup_func  = L.declare_function "Store_lookup" store_lookup_t the_module in
+  (* ----- end of builtin function declarations ----- *)
 
   (* ----- start of thread related function declarations ----- *)
   let pthread_create_t          = L.function_type i32_t [| (L.pointer_type pthread_t); voidptr_t; (L.pointer_type (L.function_type voidptr_t [| voidptr_t |])); voidptr_t |] in 
@@ -286,7 +290,6 @@ let translate (SProgram(statements)) =
   let pthread_mutex_lock_func   = L.declare_function "pthread_mutex_lock" pthread_mutex_lock_t the_module in
   let pthread_mutex_unlock_func = L.declare_function "pthread_mutex_unlock" pthread_mutex_unlock_t the_module in
   (* ----- end of thread related function declarations ----- *)
-
 
   let rec statement builder = function
       SExpr e -> let _     = expr builder e in builder
@@ -622,24 +625,20 @@ let translate (SProgram(statements)) =
     SLambda (store, retty, formals, body) ->
       let can_use_store = store && (retty = A.Int) && ((List.length formals) = 1) && ((fst (List.hd formals)) = A.Int) in
       let _ = if can_use_store then
-        (* let formal_types = Array.of_list (List.map (fun (t, _) -> if ((is_pointer t) || (is_function t)) then L.pointer_type (ltype_of_typ t) else ltype_of_typ t) formals) in
-        let formal_lltys = List.filter (fun (t) -> t <> quack_t) (Array.to_list formal_types) in *)
-        (* let ret_llty = 
-          if ((is_pointer retty) || (is_function retty)) then (L.pointer_type (ltype_of_typ retty)) else ltype_of_typ retty in  *)
-        (*
-        let param_struct = L.named_struct_type context (name ^ "_param_struct#") in
-        let _ = L.struct_set_body param_struct [| L.pointer_type (voidptr_t) ; L.pointer_type i32_t; i32_t |] false in 
+        (* store only for int -> int functions *)
+
         let store_elem_struct = L.named_struct_type context (name ^ "_store_elem_struct#") in
-        let _ = L.struct_set_body store_elem_struct [| param_struct ; voidptr_t |] false in 
+        let _ = L.struct_set_body store_elem_struct [| i32_t ; i32_t |] false in 
+        
         let store_elem_arrayty = (L.array_type store_elem_struct 32) in
         let store_struct = L.named_struct_type context (name ^ "_store_struct#") in
+
         (* a store struct contains { latest_index, full_marker, element array } *)
         let _ = L.struct_set_body store_struct [| i32_t; i32_t; store_elem_arrayty |] false in 
-*)
-        (* let global_store_struct = L.define_global ("global_" ^ name ^ "_store#") (L.const_null store_struct) the_module in *)
-        (* let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (Some global_store_struct) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
-        in let _ = env := new_scope in *)
-        ()(*build array*)
+
+        let global_store_struct = L.define_global ("global_" ^ name ^ "_store#") (L.const_null store_struct) the_module in
+        let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (Some global_store_struct) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
+        in let _ = env := new_scope in ()
       else 
         let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name None !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
         in let _ = env := new_scope in
