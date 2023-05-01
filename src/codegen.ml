@@ -487,6 +487,7 @@ and list_of_fptrs (scope : symbol_table) builder =
           let else_builder = L.builder_at_end context else_bb in
           let merge_builder = L.builder_at_end context merge_bb in
 
+          (* so, inside then:, call the actual function and cache the result *)
           let retval = L.build_call fdef (Array.of_list llargs) (f ^ "_result") then_builder in 
           let _ = L.build_call store_insert_func [| global_store_struct; arg; retval |] "" then_builder in
           
@@ -494,15 +495,14 @@ and list_of_fptrs (scope : symbol_table) builder =
           let _ = L.build_store retval result_stackaddr then_builder in
           let _ = L.build_br merge_bb then_builder in
           
-          (* store val from store_lookup in stack address *)
+          (* Otherwise, in else:, store val from cache in the above stack address *)
           let _ = L.build_store result result_stackaddr else_builder in
           let _ = L.build_br merge_bb else_builder in
 
-          let _ = L.position_at_end merge_bb builder in
-          L.build_load result_stackaddr "result" merge_builder
+          (* move the builder to the end of the merge block so further code can be added *)
+          let _ = L.position_at_end merge_bb builder in L.build_load result_stackaddr "result" merge_builder
         else  
           L.build_call fdef (Array.of_list llargs) result builder
-
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -574,7 +574,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       let new_scope = {variables = StringMap.add n list_ptr !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
   else if is_function t then
-    (* TODO: for functions passed as params, do we want to downgrade store to non-store? otherwise how do we get the details about the function pointer and if it points to a store fun or not? we could maintain a global reverse map of function pointer to list of names that point to it...but is this overkill? *)
     let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = StringMap.add n None !env.stored; parent = !env.parent; functionpointers = StringMap.add n p !env.functionpointers}
       in let _ = env := new_scope 
       in seen_functions := StringMap.add n true !seen_functions
