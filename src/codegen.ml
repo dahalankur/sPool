@@ -358,11 +358,12 @@ and list_of_fptrs (scope : symbol_table) builder =
         | SCall(f, _) -> let fptr = expr builder (t , e) in 
                             let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (find_stored !env f) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
                             in let _ = env := new_scope in builder
-      | SLambda (store, _, _, _) ->
+      | SLambda (_, _, _, _) ->
         let ftype = ftype_from_t (A.Arrow(formals, retty)) in
         let f = L.define_function name ftype the_module in
         let fptr = L.build_bitcast f (L.pointer_type ftype) (name ^ "_ptr") builder in
-          build_named_function name builder fptr e)
+          build_named_function name builder fptr e
+      | _ -> raise (Failure "Invalid function definition"))
     | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
     | SReturn ((t, _) as e) when (is_pointer t && (not (is_mutex t))) ->
@@ -439,9 +440,9 @@ and list_of_fptrs (scope : symbol_table) builder =
     | SCall ("Mutex_lock", [e]) ->   L.build_call pthread_mutex_lock_func   [| expr builder e |] "" builder
     | SCall ("Mutex_unlock", [e]) -> L.build_call pthread_mutex_unlock_func [| expr builder e |] "" builder
     | SCall (f, args) -> 
-       let global_store_struct_option = find_stored !env f in 
+       (* let global_store_struct_option = find_stored !env f in 
        let is_storefunc = (match global_store_struct_option with Some a -> true | None -> false)
-      in 
+      in  *)
       (* if is_storefunc then *)
 
       (* if is_storefunc then 

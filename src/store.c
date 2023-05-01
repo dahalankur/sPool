@@ -36,7 +36,7 @@ int store_lookup(Store *store, int param) {
     pthread_mutex_lock(&lock);
     int start = 0;
     int end = store->full ? (STORE_SIZE - 1) : store->curr_index;
-    int result = -1;
+    int result = INT32_MIN;
 
     while (start <= end) {
         Elem e = store->stored[start];

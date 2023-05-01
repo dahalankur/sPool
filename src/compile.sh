@@ -67,4 +67,4 @@ fi
 "$LLC" -relocation-model=pic "$sP_file_no_ext".ll -o "$sP_file_no_ext".s
 
 # link it with builtins.o and the pthread library
-gcc -O2 -pthread "$sP_file_no_ext".s "$script_dir"/builtins.o "$script_dir"/list.o -o "$exec"
+gcc -O2 -pthread "$sP_file_no_ext".s "$script_dir"/builtins.o "$script_dir"/list.o "$script_dir"/store.o -o "$exec"
