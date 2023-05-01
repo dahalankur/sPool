@@ -11,6 +11,7 @@ open Sast
 
 module StringMap = Map.Make(String)
 
+(* context and type defintions *)
 let context    = L.global_context ()
 let i32_t      = L.i32_type    context
 and i8_t       = L.i8_type     context
@@ -20,11 +21,9 @@ and quack_t    = L.void_type   context
 and string_t   = L.pointer_type (L.i8_type context) 
 and voidptr_t  = L.pointer_type (L.i8_type context)
 and nodeptr_t  = L.pointer_type (L.named_struct_type context "Node") 
-
 let list_t     = L.pointer_type (L.struct_type context [| voidptr_t; nodeptr_t |])
 and pthread_t  = L.pointer_type (L.named_struct_type context "pthread_t")
 and mutex_t    = L.pointer_type (L.named_struct_type context "pthread_mutex_t")
-
 let thread_t   = pthread_t 
 
 let is_pointer = function 
@@ -88,14 +87,10 @@ let rec find_stored (scope : symbol_table) name =
         Some(parent) -> find_stored parent name
       | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_stored) for " ^ name))
 
-(* initial env *)
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; stored = StringMap.empty; parent = None ; functionpointers = StringMap.empty }
-
-
-
 let seen_functions = ref StringMap.empty
-
 let anon_counter = ref 1
+let depth = ref 0
 
 let add_to_scope (s, v, n) builder t =
   if not s then
@@ -124,8 +119,6 @@ let add_to_scope (s, v, n) builder t =
       let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
 
-let depth = ref 0
-
 let push_scope () = 
   let new_scope = {variables = StringMap.empty; shared = StringMap.empty; stored = StringMap.empty; parent = Some(!env); functionpointers = StringMap.empty}
   in let _ = depth := !depth + 1 in env := new_scope
@@ -152,7 +145,7 @@ let translate (SProgram(statements)) =
      Specfically, when generating branching instructions (If and While), 
      we need to know which function we are inside at that given point since 
      we need to create new blocks like "merge", "then", "else", etc.
-     For this, the the_function function is useful since it returns the 
+     For this, the the_function () function is useful since it returns the 
      function definition for which the code is being generated at any 
      given point. To maintain this invariant, whenever we see a new function 
      being created (LAMBDA in our case), we need to ensure that its 
@@ -167,23 +160,7 @@ let translate (SProgram(statements)) =
   let pop_function   () = S.pop      !curr_function in
   let is_stack_empty () = S.is_empty !curr_function in
 
-  (* if we are a nested function, how many hops are we away from our parent 
-     function in terms of jumps in the symbol table? 
-  *)
-  (* let hops_to_parent_function = ref 0 in  *)
-
-  (* if top is stack is something other than "main", we are generating a nested function *)
-  let is_nested_fun () = not (is_stack_empty () || (String.equal (L.value_name (the_function ())) "main")) in
-
   (* ----------- end of stack-related bookkeeping functions ----------- *)
-
-  let list_of_llvals_n_hops_from_scope (scope : symbol_table) hops builder = 
-    let rec helper acc curr_scope remaining_hops = 
-      if (remaining_hops < 0) then raise (Failure "Internal Compiler Error: should not happen in list_of_llvals_n_hops_from_scope; scope is not correct") else
-      (match curr_scope.parent with 
-        None -> acc @ (StringMap.bindings curr_scope.variables)
-      | Some(p) -> if (remaining_hops = 0) then (acc @ (StringMap.bindings curr_scope.variables)) else (helper (acc @ (StringMap.bindings curr_scope.variables)) p (remaining_hops - 1)))
-    in (helper [] scope hops, builder) in
   
   (* dumps the symbol table to a list of (name, llvalue) pairs *)
   let rec list_of_llvals (scope : symbol_table) builder = 
@@ -192,9 +169,7 @@ let translate (SProgram(statements)) =
         None -> acc @ (StringMap.bindings curr_scope.variables)
       | Some(p) -> helper (acc @ (StringMap.bindings curr_scope.variables)) p)
     in 
-    (* prevent nested functions from capturing old, stale scope. Nested functions need to only look at their current parent 
-       since their parent will have captured everything and added to their scope by this point anyway *)
-    let (list_llvals, builder) = if (is_nested_fun ()) then (list_of_llvals_n_hops_from_scope !env (!depth - 1) builder) else (helper [] scope, builder) in 
+    let (list_llvals, builder) = (helper [] scope, builder) in 
     let seen_names = ref StringMap.empty in
     let (fptrs, builder) = list_of_fptrs !env builder in
     let fptrs = List.map fst fptrs in 
@@ -216,9 +191,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       let list_fptrs = helper [] scope in
       let result = List.rev (List.fold_left (fun acc bs -> bs :: acc) [] list_fptrs)
       in (result, builder) in
-
-  (* ----------- end of stack-related bookkeeping functions ----------- *)
-
 
   (* ----- start of builtin function declarations ----- *)
 
@@ -463,18 +435,19 @@ and list_of_fptrs (scope : symbol_table) builder =
           let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (L.const_int i32_t 0)) in
           if global_store_struct = (L.const_int i32_t 0) then L.build_call fdef (Array.of_list llargs) result builder else
 
-          let arg = (Array.of_list llargs).(0) in
+          let arg = (Array.of_list llargs).(0) in (* safe because functions with store always have one argument *)
 
           let global_store_struct = L.build_bitcast global_store_struct voidptr_t "voidptr" builder in
 
           let result = L.build_call store_lookup_func [| global_store_struct; arg |] "lookup_result" builder in
-          let intmin = L.const_int i32_t (-2147483648) in 
-          let is_min = L.build_icmp L.Icmp.Eq result intmin "" builder in 
+          let int32_min = L.const_int i32_t (-2147483648) in 
+          let is_min = L.build_icmp L.Icmp.Eq result int32_min "" builder in 
 
           let result_stackaddr = L.build_alloca i32_t "result_stackaddr" builder in
           
-          (* if result = intmin, then we want to store the result of this call to the store and return the result
-            otherwise, we want to return the result that we got from the store *) 
+          (* if result = int32_min, then we want to store the result of this call to 
+            the store and return the result. Otherwise, we want to return the 
+            result we got from the store *) 
          
           let the_function = the_function () in 
 
@@ -501,8 +474,7 @@ and list_of_fptrs (scope : symbol_table) builder =
 
           (* move the builder to the end of the merge block so further code can be added *)
           let _ = L.position_at_end merge_bb builder in L.build_load result_stackaddr "result" merge_builder
-        else  
-          L.build_call fdef (Array.of_list llargs) result builder
+        else L.build_call fdef (Array.of_list llargs) result builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -661,7 +633,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       let fun_builder = L.builder_at_end context (L.entry_block fdef) in
 
       (* unpacking the variables in the closure *)
-
       let _ = List.iteri (fun index _ -> 
         let var_struct_ptr = L.build_struct_gep global_closure_struct index "" fun_builder in
         let struct_var = L.build_load var_struct_ptr "individual_data_struct" fun_builder in
@@ -699,7 +670,6 @@ and list_of_fptrs (scope : symbol_table) builder =
         let _ = List.iter2 (fun (t, n) p -> 
           let () = L.set_value_name n p in
           let is_shared = match t with A.List(_) | A.Mutex -> true | _ -> false in
-          (* let is_stored = if is_function t then find_stored !env n else false in *)
           let _ = add_params_to_scope (is_shared, p, n) fun_builder t in ()) formals (Array.to_list (L.params fdef)) in ()
       else ();
     
