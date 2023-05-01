@@ -270,11 +270,11 @@ and list_of_fptrs (scope : symbol_table) builder =
   let list_at_t          = L.function_type voidptr_t [| (L.pointer_type list_t); i32_t |] in
   let list_at_func       = L.declare_function "List_at" list_at_t the_module in
 
-  let store_insert_t     = L.function_type quack_t [| (L.pointer_type (L.named_struct_type context "Store")); i32_t; i32_t |] in
-  let store_insert_func  = L.declare_function "Store_insert" store_insert_t the_module in
+  let store_insert_t     = L.function_type quack_t [| voidptr_t; i32_t; i32_t |] in
+  let store_insert_func  = L.declare_function "store_insert" store_insert_t the_module in
 
-  let store_lookup_t     = L.function_type i32_t [| (L.pointer_type (L.named_struct_type context "Store")); i32_t |] in
-  let store_lookup_func  = L.declare_function "Store_lookup" store_lookup_t the_module in
+  let store_lookup_t     = L.function_type i32_t [| voidptr_t; i32_t |] in
+  let store_lookup_func  = L.declare_function "store_lookup" store_lookup_t the_module in
   (* ----- end of builtin function declarations ----- *)
 
   (* ----- start of thread related function declarations ----- *)
@@ -440,41 +440,8 @@ and list_of_fptrs (scope : symbol_table) builder =
     | SCall ("Mutex_lock", [e]) ->   L.build_call pthread_mutex_lock_func   [| expr builder e |] "" builder
     | SCall ("Mutex_unlock", [e]) -> L.build_call pthread_mutex_unlock_func [| expr builder e |] "" builder
     | SCall (f, args) -> 
-       (* let global_store_struct_option = find_stored !env f in 
-       let is_storefunc = (match global_store_struct_option with Some a -> true | None -> false)
-      in  *)
-      (* if is_storefunc then *)
-
-      (* if is_storefunc then 
-          let predicate = ll_lookup 
-        let the_function   = the_function () in
-
-            let bool_val       = expr builder predicate in
-            
-            let _ = push_scope () in
-
-            let merge_bb       = L.append_block context "merge" the_function in
-              let branch_instr = L.build_br merge_bb in
-            
-            let then_bb        = L.append_block context "then" the_function in
-              let then_builder = List.fold_left statement (L.builder_at_end context then_bb) then_stmt in
-            let ()             = add_terminal then_builder branch_instr in
-            
-            let _ = pop_scope() in
-            let _ = push_scope () in
-            
-            let else_bb        = L.append_block context "else" the_function in
-              let else_builder = List.fold_left statement (L.builder_at_end context else_bb) else_stmt in
-            let ()             = add_terminal else_builder branch_instr in
-            
-            let _ = pop_scope() in
-            
-            let _              = L.build_cond_br bool_val then_bb else_bb builder in L.builder_at_end context merge_bb    
-          
-            
-    
-
-      else  *)
+      let global_store_struct_option = find_stored !env f in 
+      let is_storefunc = (match global_store_struct_option with Some _ -> true | None -> false)in 
       let fdef   = find_variable !env f in
       let retty  = L.return_type (L.element_type (L.type_of fdef)) in
       let llargs = (List.map (fun ((t, _) as e) -> if (is_pointer t && (not (is_mutex t))) then L.build_load (expr builder e) "ptrval" builder else expr builder e) args) in
@@ -492,28 +459,48 @@ and list_of_fptrs (scope : symbol_table) builder =
         let _ = L.build_store new_listlit head builder in
         listptr
       else
-        (* if is_storefunc then 
-          let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (raise (Failure "shouldn't happen"))) in
-          let resultval = L.build_call fdef (Array.of_list llargs) result builder in
-          (*  llvalue -> string -> llbuilder -> llvalue *)
-          (*let global_store_struct = (match L.lookup_global (f ^ "_store_struct#") the_module with 
-                                      Some a -> a 
-                                    | None -> raise (Failure ("Internal Error: " ^ f ^ "_store_struct#"))) in*)
-          let curr_index = L.build_struct_gep global_store_struct 0 "" builder in
-          let full_indicator = L.build_struct_gep global_store_struct 1 "" builder in
-          let elem_array = L.build_struct_gep global_store_struct 2 "" builder in
-          let current_elem = L.build_struct_gep elem_array 0 "" builder in
+        if is_storefunc then 
+          let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (L.const_int i32_t 0)) in
+          if global_store_struct = (L.const_int i32_t 0) then L.build_call fdef (Array.of_list llargs) result builder else
 
+          let arg = (Array.of_list llargs).(0) in
 
+          let global_store_struct = L.build_bitcast global_store_struct voidptr_t "voidptr" builder in
+
+          let result = L.build_call store_lookup_func [| global_store_struct; arg |] "lookup_result" builder in
+          let intmin = L.const_int i32_t (-2147483648) in 
+          let is_min = L.build_icmp L.Icmp.Eq result intmin "" builder in 
+
+          let result_stackaddr = L.build_alloca i32_t "result_stackaddr" builder in
           
+          (* if result = intmin, then we want to store the result of this call to the store and return the result
+            otherwise, we want to return the result that we got from the store *) 
+         
+          let the_function = the_function () in 
 
-          (* store result *)
-          let param_pointer = L.build_struct_gep current_elem 0 "" builder in
-          let result_pointer = L.build_struct_gep current_elem 1 "" builder in
-          (*let _ = L.build_store (*new struct*) current_elem builder in *)
-          resultval
-          (* update curr_index and full_indicator TODO *)
-        else   *)
+          let then_bb = L.append_block context "then" the_function in
+          let else_bb = L.append_block context "else" the_function in
+          let merge_bb = L.append_block context "merge" the_function in
+          let _ = L.build_cond_br is_min then_bb else_bb builder in
+
+          let then_builder = L.builder_at_end context then_bb in
+          let else_builder = L.builder_at_end context else_bb in
+          let merge_builder = L.builder_at_end context merge_bb in
+
+          let retval = L.build_call fdef (Array.of_list llargs) (f ^ "_result") then_builder in 
+          let _ = L.build_call store_insert_func [| global_store_struct; arg; retval |] "" then_builder in
+          
+          (* store val from function call in stack address *)
+          let _ = L.build_store retval result_stackaddr then_builder in
+          let _ = L.build_br merge_bb then_builder in
+          
+          (* store val from store_lookup in stack address *)
+          let _ = L.build_store result result_stackaddr else_builder in
+          let _ = L.build_br merge_bb else_builder in
+
+          let _ = L.position_at_end merge_bb builder in
+          L.build_load result_stackaddr "result" merge_builder
+        else  
           L.build_call fdef (Array.of_list llargs) result builder
 
     | SBinop (e1, op, e2) ->
@@ -638,6 +625,7 @@ and list_of_fptrs (scope : symbol_table) builder =
         let _ = L.struct_set_body store_struct [| i32_t; i32_t; store_elem_arrayty |] false in 
 
         let global_store_struct = L.define_global ("global_" ^ name ^ "_store#") (L.const_null store_struct) the_module in
+
         let new_scope = {variables = StringMap.add name fptr !env.variables; shared = StringMap.add name false !env.shared; stored = StringMap.add name (Some global_store_struct) !env.stored; parent = !env.parent; functionpointers = StringMap.add name fptr !env.functionpointers}
         in let _ = env := new_scope in ()
       else 
