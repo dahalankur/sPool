@@ -17,8 +17,6 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define STORE_SIZE 32
 
-typedef struct Node *Node;
-
 typedef struct Elem {
     int param;
     int result;
