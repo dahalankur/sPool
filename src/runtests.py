@@ -5,7 +5,7 @@
 #                                             test directory in tests/ and 
 #                                             dir is the directory containing
 #                                             the subdirectories of tests
-#  Written by Team Nautilus on 02/20/2023
+#  Written by Team Nautilus (ankur, yuma, max, etha) on 02/20/2023
 
 import sys
 import os

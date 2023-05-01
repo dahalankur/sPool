@@ -1,3 +1,9 @@
+// store.c
+// Implements functions related to the store feature for sPool that are later 
+// linked with the sPool compiler
+//
+// Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
+
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>

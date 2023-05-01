@@ -1,3 +1,8 @@
+// list.c
+// Implements list functions for sPool that are later linked with the sPool compiler
+//
+// Written by: Team Nautilus (Ankur, Yuma, Max, Etha)
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
