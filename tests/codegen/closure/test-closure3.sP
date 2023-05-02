@@ -13,6 +13,3 @@ def quack hi():
 ;
 
 hi()
-
-
-# TODO: lambdas, higher order functions (passing functions as args, returning functions from functions, assigning functions to variables, etc.)

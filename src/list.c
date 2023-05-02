@@ -106,6 +106,7 @@ void List_replace(Node **head, int index, void *v)
     if (old) free(old);
 }
 
+#if DEBUG
 void List_int_print(Node **l)
 {
     if (!l || !*l) {
@@ -125,6 +126,7 @@ void List_int_print(Node **l)
     }
     printf("]\n");
 }
+#endif
 
 #if DEBUG
 int main()

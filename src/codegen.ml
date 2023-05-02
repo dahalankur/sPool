@@ -230,9 +230,6 @@ and list_of_fptrs (scope : symbol_table) builder =
   let list_len_t           = L.function_type i32_t [| (L.pointer_type list_t) |] in
   let list_len_func        = L.declare_function "List_len" list_len_t the_module in
 
-  let list_int_print_t     = L.function_type quack_t [| (L.pointer_type list_t) |] in
-  let list_int_print_func  = L.declare_function "List_int_print" list_int_print_t the_module in
-
   let list_remove_t       = L.function_type quack_t [| (L.pointer_type list_t); i32_t |] in
   let list_remove_func    = L.declare_function "List_remove" list_remove_t the_module in
 
@@ -380,10 +377,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       let e' = expr builder e in
       let list = L.build_load e' "list" builder in
       L.build_call list_len_func [| list |] "List_len" builder
-    | SCall ("List_int_print", [e])  -> 
-      let e' = expr builder e in
-      let list = L.build_load e' "list" builder in
-      L.build_call list_int_print_func [| list |] "" builder
     | SCall ("String_concat", [e1; e2])     -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
     | SCall ("List_insert", [e1; e2; e3])   -> 
