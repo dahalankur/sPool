@@ -35,9 +35,8 @@ int i = 0
 int num_threads = 50
 list<thread> ts = []
 
-# invoke all threads and add them to the list ts
 while (i < num_threads):
-    List_insert(ts, i, { add11ToX() })
+    List_insert(ts, i, { add11ToX() }) # invoke the function add11ToX in a new thread
     i = i + 1
 ;
 
