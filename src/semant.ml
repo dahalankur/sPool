@@ -9,7 +9,6 @@
 open Ast
 open Sast
 
-(* exceptions *)
 exception SemanticError of string
 exception NameNotFound of string
 exception TypeError of string
@@ -20,9 +19,7 @@ type symbol_table = {
   (* Variables bound in current scope *)
   variables : typ StringMap.t;
   
-  (* For each variable bound in current scope, are they shared across thread?
-     Store this information in a map from variable name to bool   
-  *)
+  (* For each variable bound in current scope, are they shared across thread? *)
   shared : bool StringMap.t;
 
   (* Enclosing scope *)
@@ -31,30 +28,24 @@ type symbol_table = {
 
 let rec find_variable (scope : symbol_table) name =
   try
-    (* Try to find binding in nearest block *)
     StringMap.find name scope.variables
-  with Not_found -> (* Try looking in outer blocks *)
+  with Not_found ->
     match scope.parent with
       Some(parent) -> find_variable parent name
     | _            -> raise (NameNotFound ("unidentified flying name " ^ name))
 
 let rec find_shared (scope : symbol_table) name = 
   try
-    (* Try to find binding in nearest block *)
     StringMap.find name scope.shared
-  with Not_found -> (* Try looking in outer blocks *)
+  with Not_found ->
     match scope.parent with
       Some(parent) -> find_shared parent name
     | _            -> raise (NameNotFound ("unidentified flying name " ^ name))
 
-type translation_environment = {
-  scope : symbol_table; (* symbol table for vars *)
-}
+type translation_environment = { scope : symbol_table }
 
 (* initial env *)
-let env : translation_environment ref = ref {
-  scope = { variables = StringMap.empty; shared = StringMap.empty; parent = None };
-}
+let env : translation_environment ref = ref { scope = { variables = StringMap.empty; shared = StringMap.empty; parent = None } }
 
 let add_to_scope (s, t, n) =
   let new_scope = {variables = StringMap.add n t !env.scope.variables; shared = StringMap.add n s !env.scope.shared; parent = !env.scope.parent}
@@ -72,7 +63,6 @@ let rec eqType = function
   | (List(_), _) | (_, List(_)) | (Arrow(_, _), _) | (_, Arrow(_, _)) -> false
   | (t1, t2) -> t1 = t2  (* primitive type equality *)
 
-
 (* list of built-in function names *)
 let builtin_functions = 
   let builtins = [
@@ -81,7 +71,6 @@ let builtin_functions =
                   ("List_replace", Arrow([List(Alpha); Int; Alpha], Quack));
                   ("List_insert", Arrow([List(Alpha); Int; Alpha], Quack)); 
                   ("List_remove", Arrow([List(Alpha); Int], Quack));
-                  (* print for debugging only: *) ("List_int_print", Arrow([List(Int)], Quack));
                   
                               (* Printing built-ins *)
                   ("print", Arrow([String], Quack)); ("println", Arrow([String], Quack));
@@ -108,8 +97,7 @@ let builtin_functions =
 
 (* returns the specific sPool type that should replace ALPHA for each list builtin function *)
 let alpha_to_builtin (fname, argtypes) = match (fname, argtypes) with 
-    ("List", [Int; t])                                      -> t
-  | ("List_at", [List(t); Int])                             -> t
+    ("List_at", [List(t); Int])                             -> t
   | ("List_len", [List(t)])                                 -> t
   | ("List_replace", [List(t); Int; t2]) when eqType(t, t2) -> t
   | ("List_insert", [List(t); Int; t2])  when eqType(t, t2) -> t
@@ -285,13 +273,7 @@ let check (Program(statements)) =
           if ca = [] then [Quack] else ca in (* If the arg list is empty, set it to have 'quack' type *)
         
         (* if alphas exist in the function's return type, instantiate it so we get a monomorphic type for the result of the call *)
-          let sretty = 
-            if alpha_type retty then 
-              (* if true, this can only be List_at or List builtin *)
-              let instantiated_retty = alpha_to_builtin (name, arg_typs) in
-                if name = "List" then List(instantiated_retty) (* since List returns List<a> *)
-                else instantiated_retty
-            else retty in
+          let sretty = if alpha_type retty then alpha_to_builtin (name, arg_typs) else retty in
           let _ = 
             (* Check well-typedness of polymorphic functions. This is done by alpha_to_builtin function automatically during pattern matching. This check ensures that calls like List_insert([1, 2], 0, false) are rejected because false != int *)
             if alpha_type funty then alpha_to_builtin (name, arg_typs) else Quack in

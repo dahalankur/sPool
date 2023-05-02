@@ -12,6 +12,7 @@ println(int_to_string(getY(5))) # aha! this will still return 100, which was cac
 
 def quack hi():
     println(int_to_string(getY(6))) # only this will return 200 because param 6 is not cached
+    println(int_to_string(getY(5))) # still 100!
     return
 ;
 

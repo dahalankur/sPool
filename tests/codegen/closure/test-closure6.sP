@@ -4,6 +4,17 @@ shared int x = 1
 int y = 2
 list<list<int>> l = [[1, 2, 3], [4, 5]]
 
+def quack list_int_print(list<int> l):
+    print("[ ")
+    int i = 0
+    while (i < List_len(l)):
+        print(int_to_string(List_at(l, i)))
+        print(" ")
+        i = i + 1;
+    println("]")
+    return
+;
+
 def quack hi():
     int insideHi = 123
     def quack bye():
@@ -29,7 +40,7 @@ def quack ok():
         print("I am inside a thread, and 1 + 2 = ")
         print(int_to_string(x + y + 1)) })
     println("")
-    List_int_print(List_at(l, 1))
+    list_int_print(List_at(l, 1))
     List_remove(l, 1)
     return;
 
@@ -39,4 +50,4 @@ hi() #  bye!, 102, Byeeeee, 2
 println(int_to_string(x)) # 0
 println(int_to_string(y)) # 2
 ok() # 1 + 2 = 3, [4, 5]
-List_int_print(List_at(l, 0)) # [1, 2, 3]
+list_int_print(List_at(l, 0)) # [1, 2, 3]

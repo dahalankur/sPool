@@ -1,3 +1,14 @@
+def quack List_int_print(list<int> l):
+    print("[ ")
+    int i = 0
+    while (i < List_len(l)):
+        print(int_to_string(List_at(l, i)))
+        print(" ")
+        i = i + 1;
+    println("]")
+    return
+;
+
 def list<int> List(int len, int value):
     int i = 0
     list<int> result = []
