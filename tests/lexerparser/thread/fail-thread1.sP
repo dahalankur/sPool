@@ -1,0 +1,1 @@
+{ { } int x = 2 } # fails because int x = 2 has to be on a new line

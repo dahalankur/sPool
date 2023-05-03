@@ -1,0 +1,4 @@
+PROGRAM {[ 
+    THREAD([ 
+        DEFINE(false, INTTY, x, VAR(f)) 
+        DEFINE(false, INTTY, y, VAR(x))])]}
