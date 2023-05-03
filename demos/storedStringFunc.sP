@@ -73,7 +73,7 @@ def string decompIntToStr(int aNum):
 #           |                 |                |----------|                         |                         |
 #    str    | (encodeto) int  | (decodeto) str |          |   str    (encodeto) int |         (decodeto) str  | str
 # ------->  | ------------->  | -------------> | origFunc | -------> -------------->| ----->|---------------> |----->
-#           |  is cached? No  |                |----------|                         |      /                  |
+#           |  is cached? No  |                |----------|           store result  |      /                  |
 #           |     \           |                                                     |     /                   |
 #           |      \Yes       |                                                     |    /                    |
 #           |       \         |------------------------------------------------------   /                     |
