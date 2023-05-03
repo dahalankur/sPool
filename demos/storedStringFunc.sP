@@ -3,9 +3,17 @@
 # data types. Here we choose to write a HOF that converts a string->string
 # function to a stored string->string function with the help of int<->string
 # encoding and decoding functions.
+# Written by Team Nautilus (ankur, etha, max, yuma)
+#
+# Compile: The standard library needs to be imported while compiling this source
+#          file. To do so, use the compile.sh script with the -stdlib flag.
+# Example: When inside the src/ directory, run the following command to compile:
+#          ./compile.sh -stdlib ../demos/storedStringFunc.sP a.out
+#          This will create an executable file named a.out in the src/ directory,
+#          which can be simply run to execute the program.
 
 
-# define the detault alphabet to be lower case a-z, with the first
+# define the default alphabet to be lower case a-z, with the first
 # character to be an unused character
 string alphabet = "/abcdefghijklmnopqrstuvwxyz"
 
@@ -106,15 +114,15 @@ def string printStrIdt(string x):
 # should print hello three times and print hellow once
 println("----------Non-stored print---------------")
 printStrIdt("hello")
-printStrIdt("hello")
-printStrIdt("hello")
+printStrIdt("hello") # prints "hello" for the second time
+printStrIdt("hello") # prints "hello" for the third time
 printStrIdt("hellow")
 println("-----------------------------------------")
 
 println("----------Stored print-------------------")
 # should print hello exactly once, followed by hellow
 stored_printStrIdt("hello")
-stored_printStrIdt("hello")
-stored_printStrIdt("hello")
+stored_printStrIdt("hello") # no side effects, as this is a "converted" store function and result is cached for "hello"
+stored_printStrIdt("hello") # again, does not print since result is cached
 stored_printStrIdt("hellow")
 println("-----------------------------------------")
