@@ -85,7 +85,7 @@ let rec find_stored (scope : symbol_table) name =
     with Not_found ->
       match scope.parent with
         Some(parent) -> find_stored parent name
-      | _            -> raise (Failure ("Internal Error: should have been caught in semantic analysis (find_stored) for " ^ name))
+      | _            -> None
 
 let env : symbol_table ref = ref { variables = StringMap.empty; shared = StringMap.empty; stored = StringMap.empty; parent = None ; functionpointers = StringMap.empty }
 let seen_functions = ref StringMap.empty
@@ -399,7 +399,7 @@ and list_of_fptrs (scope : symbol_table) builder =
         if (is_pointer t1 && (not (is_mutex t))) then 
           L.build_bitcast value (L.pointer_type (L.pointer_type (L.pointer_type (ltype_of_typ t1)))) "cast" builder
         else L.build_bitcast value (L.pointer_type (ltype_of_typ t1)) "cast" builder in
-      L.build_load cast "list_at" builder
+      if is_function t1 then cast else L.build_load cast "list_at" builder
     | SCall ("Thread_join", [e]) -> L.build_call pthread_join_func [| expr builder e; L.const_null (L.pointer_type voidptr_t) |] "" builder
     | SCall ("Mutex", []) -> L.build_load (L.build_call pthread_mutex_init_func [| |] "" builder) "mutex" builder
     | SCall ("Mutex_lock", [e]) ->   L.build_call pthread_mutex_lock_func   [| expr builder e |] "" builder
