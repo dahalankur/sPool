@@ -1,10 +1,11 @@
-#  testlexerparser.py
+#  runtests.py
 #  Run the tests for sPool
 #  This script can be run as a standalone script, or from the Makefile
-#  Usage: python3 runtests.py dir [all|testname], where testname is the name of a 
-#                                             test directory in tests/ and 
-#                                             dir is the directory containing
-#                                             the subdirectories of tests
+#  Usage: python3 runtests.py dir [all|testname] [filename], 
+#  where testname is the name of a test directory in tests/ and dir is the 
+#  directory containing the subdirectories of tests. filename is the individual
+#  test to run if the second argument is not "all".
+# 
 #  Written by Team Nautilus (ankur, yuma, max, etha) on 02/20/2023
 
 import sys
