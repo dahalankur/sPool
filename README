@@ -109,11 +109,21 @@ directory.
        This should automatically compile the compiler and run our `runtests.py` python script
        to run all tests in the testsuite.
 
+- Run all tests in a specific directory:
+        To run all tests in a testname directory type:
+
+            `python3 runtests.py <TESTPHASE> all <TESTDIR>` 
+        
+        where <TESTPHASE> is the name of the directory in sPool/tests/
+        and <TESTDIR> is the name of the directory in sPool/tests/<TESTPHASE>/
+
+
 - Run a single test:
 
        To run a single test, type:
-              `python3 runtests.py codegen <TESTDIR> <TESTNAME>` where <TESTDIR> is the
-       name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
+              `python3 runtests.py codegen <TESTDIR> <TESTNAME>` 
+              
+       where <TESTDIR> is the name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
        name of the test without the extension `.sP` in sPool/test/codegen/<TESTDIR>/
        
        For example, if you want to run an individual test on the test-list8.sP file under 
