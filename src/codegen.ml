@@ -106,14 +106,10 @@ let add_to_scope (s, v, n) builder t =
         let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
           in env := new_scope
       else
-        let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
-        let _     = L.build_store v local builder in
         let new_scope = {variables = StringMap.add n v !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
           in env := new_scope
     else
-      let local = L.build_alloca (L.pointer_type (ltype_of_typ t)) n builder in
       let heap  = L.build_malloc (ltype_of_typ t) n builder in
-      let _     = L.build_store heap local builder in
       let _     = L.build_store v heap builder in
       let new_scope = {variables = StringMap.add n heap !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
@@ -177,8 +173,7 @@ let translate (SProgram(statements)) =
       if StringMap.mem name !seen_functions then acc else 
       if StringMap.mem name !seen_names then acc else
       let _ = seen_names := StringMap.add name true !seen_names in
-      if (is_llval_pointer llval) then (name, L.build_load llval name builder) :: acc else
-      if (find_shared !env name) then (name, llval) :: acc
+      if ((is_llval_pointer llval) || (find_shared !env name)) then (name, llval) :: acc
       else (name, L.build_load llval name builder) :: acc)
       [] list_llvals) in (result, builder)
 and list_of_fptrs (scope : symbol_table) builder =
@@ -506,8 +501,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       let new_scope = {variables = StringMap.add n local !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
     else
-      let list_ptr = L.build_alloca (L.pointer_type (ltype_of_typ t)) "formal_listptr" builder in
-      let _ = L.build_store p list_ptr builder in
       let new_scope = {variables = StringMap.add n p !env.variables; shared = StringMap.add n s !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers}
         in env := new_scope
   else if is_function t then
