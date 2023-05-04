@@ -334,9 +334,6 @@ and list_of_fptrs (scope : symbol_table) builder =
       | _ -> raise (Failure "Invalid function definition"))
     | SDefine(s, typ, name, e) -> let _  = add_to_scope (s, (expr builder e), name) builder typ in builder
     | SReturn (_, SNoexpr) ->  let _ = L.build_ret_void builder in builder
-    (* | SReturn ((t, _) as e) when (is_pointer t && (not (is_mutex t))) ->
-      let listval = L.build_load (expr builder e) "listval" builder in
-      let _ = L.build_ret listval builder in builder *)
     | SReturn e -> let _ = L.build_ret (expr builder e) builder in builder
   and build_malloc builder llval = 
       let heap = L.build_malloc (L.type_of llval) "heap" builder in
@@ -372,28 +369,14 @@ and list_of_fptrs (scope : symbol_table) builder =
     | SCall ("float_to_int", [e])    -> L.build_call float_to_int_func [| (expr builder e) |] "float_to_int" builder
     | SCall ("String_eq", [e1; e2])  -> L.build_call string_eq_func [| (expr builder e1); (expr builder e2) |] "string_eq" builder
     | SCall ("String_len", [e])      -> L.build_call strlen_func [| (expr builder e) |] "strlen" builder
-    | SCall ("List_len", [e])        -> 
-      let e' = expr builder e in
-      (* let list = L.build_load e' "list" builder in *)
-      L.build_call list_len_func [| e' |] "List_len" builder
+    | SCall ("List_len", [e])        -> L.build_call list_len_func [| expr builder e |] "List_len" builder
     | SCall ("String_concat", [e1; e2])     -> L.build_call string_concat_func [| (expr builder e1); (expr builder e2) |] "string_concat" builder
     | SCall ("String_substr", [e1; e2; e3]) -> L.build_call string_substr_func [| (expr builder e1); (expr builder e2); (expr builder e3) |] "string_substr" builder
-    | SCall ("List_insert", [e1; e2; e3])   -> 
-      let e' = expr builder e1 in
-      (* let list = L.build_load e' "list" builder in *)
-      L.build_call list_insert_func [| e'; (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
-    | SCall ("List_remove", [e1; e2])       -> 
-      let e' = expr builder e1 in
-      (* let list = L.build_load e' "list" builder in *)
-      L.build_call list_remove_func [| e'; (expr builder e2) |] "" builder
-    | SCall ("List_replace", [e1; e2; e3])  ->
-      let e' = expr builder e1 in 
-      (* let list = L.build_load e' "listval" builder in  *)
-      L.build_call list_replace_func [| e'; (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
-    | SCall ("List_at", [((A.List(t1), _) as e1); e2]) ->
-      let e' = expr builder e1 in 
-      (* let list = L.build_load e' "listval" builder in *)
-      let value = L.build_call list_at_func [| e'; (expr builder e2) |] "list_at" builder in
+    | SCall ("List_insert", [e1; e2; e3])   -> L.build_call list_insert_func [| (expr builder e1); (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
+    | SCall ("List_remove", [e1; e2])       -> L.build_call list_remove_func [| (expr builder e1); (expr builder e2) |] "" builder
+    | SCall ("List_replace", [e1; e2; e3])  -> L.build_call list_replace_func [| (expr builder e1); (expr builder e2); (L.build_bitcast (build_malloc builder (expr builder e3)) voidptr_t "voidptr" builder) |] "" builder
+    | SCall ("List_at", [((A.List(t1), _) as e1); e2]) -> 
+      let value = L.build_call list_at_func [| (expr builder e1); (expr builder e2) |] "list_at" builder in
       let cast = 
         if (is_pointer t1 && (not (is_mutex t))) then 
           L.build_bitcast value (L.pointer_type (L.pointer_type (ltype_of_typ t1))) "cast" builder
@@ -408,19 +391,10 @@ and list_of_fptrs (scope : symbol_table) builder =
       let is_storefunc = (match global_store_struct_option with Some _ -> true | None -> false)in 
       let fdef   = find_variable !env f in
       let retty  = L.return_type (L.element_type (L.type_of fdef)) in
-      let llargs = (List.map (fun ((t, _) as e) -> expr builder e) args) in
+      let llargs = (List.map (expr builder) args) in
       let result = if retty = quack_t then "" else f ^ "_result" in 
       if retty = L.pointer_type list_t then 
-        (* special case when lists are being returned from functions *)
-        (* let listptr = L.build_alloca (L.pointer_type list_t) "listptr" builder in *)
-        (* let head = L.build_malloc list_t "head" builder in *)
-        (* let _ = L.build_store head listptr builder in *)
-        (* let _ = L.build_store (L.const_null list_t) head builder in *)
-
-        let heap_ptr = L.build_call fdef (Array.of_list llargs) result builder in heap_ptr
-        (* let new_listlit = L.build_load heap_ptr result builder in *)
-
-        (* let _ = L.build_store new_listlit head builder in L.build_load listptr "listlit_ret" builder *)
+        L.build_call fdef (Array.of_list llargs) result builder
       else
         if is_storefunc then 
           let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (L.const_int i32_t 0)) in
