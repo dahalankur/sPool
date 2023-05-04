@@ -388,53 +388,50 @@ and list_of_fptrs (scope : symbol_table) builder =
       let retty  = L.return_type (L.element_type (L.type_of fdef)) in
       let llargs = (List.map (expr builder) args) in
       let result = if retty = quack_t then "" else f ^ "_result" in 
-      if retty = L.pointer_type list_t then 
-        L.build_call fdef (Array.of_list llargs) result builder
-      else
-        if is_storefunc then 
-          let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (L.const_int i32_t 0)) in
-          if global_store_struct = (L.const_int i32_t 0) then L.build_call fdef (Array.of_list llargs) result builder else
+      if is_storefunc then 
+        let global_store_struct = (match global_store_struct_option with Some a -> a | None -> (L.const_int i32_t 0)) in
+        if global_store_struct = (L.const_int i32_t 0) then L.build_call fdef (Array.of_list llargs) result builder else
 
-          let arg = (Array.of_list llargs).(0) in (* safe because functions with store always have one argument *)
+        let arg = (Array.of_list llargs).(0) in (* safe because functions with store always have one argument *)
 
-          let global_store_struct = L.build_bitcast global_store_struct voidptr_t "voidptr" builder in
+        let global_store_struct = L.build_bitcast global_store_struct voidptr_t "voidptr" builder in
 
-          let result = L.build_call store_lookup_func [| global_store_struct; arg |] "lookup_result" builder in
-          let int32_min = L.const_int i32_t (-2147483648) in 
-          let is_min = L.build_icmp L.Icmp.Eq result int32_min "" builder in 
+        let result = L.build_call store_lookup_func [| global_store_struct; arg |] "lookup_result" builder in
+        let int32_min = L.const_int i32_t (-2147483648) in 
+        let is_min = L.build_icmp L.Icmp.Eq result int32_min "" builder in 
 
-          let result_stackaddr = L.build_alloca i32_t "result_stackaddr" builder in
-          
-          (* if result = int32_min, then we want to store the result of this call to 
-            the store and return the result. Otherwise, we want to return the 
-            result we got from the store *) 
-         
-          let the_function = the_function () in 
+        let result_stackaddr = L.build_alloca i32_t "result_stackaddr" builder in
+        
+        (* if result = int32_min, then we want to store the result of this call to 
+          the store and return the result. Otherwise, we want to return the 
+          result we got from the store *) 
+        
+        let the_function = the_function () in 
 
-          let then_bb = L.append_block context "then" the_function in
-          let else_bb = L.append_block context "else" the_function in
-          let merge_bb = L.append_block context "merge" the_function in
-          let _ = L.build_cond_br is_min then_bb else_bb builder in
+        let then_bb = L.append_block context "then" the_function in
+        let else_bb = L.append_block context "else" the_function in
+        let merge_bb = L.append_block context "merge" the_function in
+        let _ = L.build_cond_br is_min then_bb else_bb builder in
 
-          let then_builder = L.builder_at_end context then_bb in
-          let else_builder = L.builder_at_end context else_bb in
-          let merge_builder = L.builder_at_end context merge_bb in
+        let then_builder = L.builder_at_end context then_bb in
+        let else_builder = L.builder_at_end context else_bb in
+        let merge_builder = L.builder_at_end context merge_bb in
 
-          (* so, inside then:, call the actual function and cache the result *)
-          let retval = L.build_call fdef (Array.of_list llargs) (f ^ "_result") then_builder in 
-          let _ = L.build_call store_insert_func [| global_store_struct; arg; retval |] "" then_builder in
-          
-          (* store val from function call in stack address *)
-          let _ = L.build_store retval result_stackaddr then_builder in
-          let _ = L.build_br merge_bb then_builder in
-          
-          (* Otherwise, in else:, store val from cache in the above stack address *)
-          let _ = L.build_store result result_stackaddr else_builder in
-          let _ = L.build_br merge_bb else_builder in
+        (* so, inside then:, call the actual function and cache the result *)
+        let retval = L.build_call fdef (Array.of_list llargs) (f ^ "_result") then_builder in 
+        let _ = L.build_call store_insert_func [| global_store_struct; arg; retval |] "" then_builder in
+        
+        (* store val from function call in stack address *)
+        let _ = L.build_store retval result_stackaddr then_builder in
+        let _ = L.build_br merge_bb then_builder in
+        
+        (* Otherwise, in else:, store val from cache in the above stack address *)
+        let _ = L.build_store result result_stackaddr else_builder in
+        let _ = L.build_br merge_bb else_builder in
 
-          (* move the builder to the end of the merge block so further code can be added *)
-          let _ = L.position_at_end merge_bb builder in L.build_load result_stackaddr "result" merge_builder
-        else L.build_call fdef (Array.of_list llargs) result builder
+        (* move the builder to the end of the merge block so further code can be added *)
+        let _ = L.position_at_end merge_bb builder in L.build_load result_stackaddr "result" merge_builder
+      else L.build_call fdef (Array.of_list llargs) result builder
     | SBinop (e1, op, e2) ->
       let (t, _) = e1
       and e1'    = expr builder e1
@@ -606,7 +603,7 @@ and list_of_fptrs (scope : symbol_table) builder =
         
         let llval_ptr = L.build_struct_gep struct_local 0 "" fun_builder in
         let llval = L.build_load llval_ptr var_name fun_builder in
-        let is_list = (L.type_of llval = list_t) in 
+        let is_list = (L.type_of llval = (L.pointer_type list_t)) in 
 
         let shared_and_not_list = is_shared && (not is_list) in
 
@@ -614,7 +611,8 @@ and list_of_fptrs (scope : symbol_table) builder =
           let llval_local = L.build_alloca (L.type_of llval) (var_name ^ "_ptr") fun_builder in
           let _ = L.build_store llval llval_local fun_builder in
 
-          let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else llval_local in
+          let address = if (shared_and_not_list) then (L.build_load llval_local "" fun_builder) else 
+                        if is_list then llval else llval_local in
 
           let _ = let new_scope = {variables = StringMap.add var_name address !env.variables; shared = StringMap.add var_name is_shared !env.shared; stored = !env.stored; parent = !env.parent; functionpointers = !env.functionpointers} in
           env := new_scope in ()
