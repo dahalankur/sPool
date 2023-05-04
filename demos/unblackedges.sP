@@ -1,4 +1,4 @@
-# testing DFS algorithm on a 2D array 
+# testing a simple BFS algorithm on a 2D array 
 
 def bool is_black(int row, int col, list<list<int>> grid):
     return List_at(List_at(grid, row), col) == 1

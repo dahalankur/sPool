@@ -1,5 +1,4 @@
-# Test List pass by reference
-
+# Test List assignment
 # lists a, b, and c all refer to the same list, any changes done to any list 
 # should also be reflected by printing out other lists.
 
