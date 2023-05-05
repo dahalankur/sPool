@@ -1,1 +1,1 @@
-valid_var = a = 4 # can't assign an expression to a variable!
+valid_var = a = 4 # can't assign a statement to a variable!
