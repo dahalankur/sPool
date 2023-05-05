@@ -391,6 +391,7 @@ Some fun demos written in the sPool programming language:
 
 We include a folder of demos of the sPool language. These can all be found
 within the `demos` directory:
+
      - sPool/demos/fibonacci.sP
      - sPool/demos/flip.sP
      - sPool/demos/idempotence.sP
@@ -399,5 +400,6 @@ within the `demos` directory:
      - sPool/demos/sort.sP
      - sPool/demos/storedStringFunc.sP
      - sPool/demos/unblackedges.sP
+
 
 Each file contains information on how to run the demo and what it does.
