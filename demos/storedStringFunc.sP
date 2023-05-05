@@ -110,7 +110,6 @@ def string printStrIdt(string x):
 # make the stored-version of printStrIdt
 (string->string) stored_printStrIdt = makeStr2Store(printStrIdt)
 
-
 # should print hello three times and print hellow once
 println("----------Non-stored print---------------")
 printStrIdt("hello")

@@ -1,4 +1,13 @@
-# testing a simple BFS algorithm on a 2D array 
+# unblackedges.sP
+# Demos sPool's threads by implementing a simple BFS algorithm
+# Inspired by CS40's unblackededges assignment at Tufts University
+# Written by Team Nautilus (ankur, etha, max, yuma)
+#
+# Compile: Use the compile.sh script to compile this source file.
+# Example: When inside the src/ directory, run the following command to compile:
+#          ./compile.sh ../demos/unblackedges.sP a.out
+#          This will create an executable file named a.out in the src/ directory,
+#          which can be simply run to execute the program.
 
 def bool is_black(int row, int col, list<list<int>> grid):
     return List_at(List_at(grid, row), col) == 1
@@ -29,7 +38,6 @@ def quack check_neighbor(int row, int col, list<list<int>> grid, list<list<int>>
 ;
 
 list<list<int>> grid = [[1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1],[1,0,0,1,1,0,0,1],[1,0,1,0,0,0,1,1],[1,0,1,1,1,0,1,1],[1,0,1,1,1,0,0,1],[1,0,0,0,0,0,1,0],[1,1,1,1,1,1,0,1]]
-# list<list<int>> grid = [[1,1],[0,0],[0,1],[0,0]]
 list<list<int>> queue = []
 
 int row = 0
@@ -59,4 +67,3 @@ while (List_len(queue) > 0):
 
 println("AFTER UNBLACKING: ")
 print_grid(grid)
-
