@@ -569,6 +569,7 @@ and list_of_fptrs (scope : symbol_table) builder =
 
       let (fptrs, builder) = list_of_fptrs !env builder in
       let fptrs = List.filter (fun (n, _) -> not (String.equal n name)) fptrs in
+      let fptrs = List.fold_left (fun acc (n, v) -> if List.exists (fun (n2, v2) -> (v = v2) || (n = n2)) acc then acc else (n, v) :: acc) [] fptrs in
       let struct_of_fptrs = List.map (struct_of_llval name builder) fptrs in 
       let all_structs = dumped_scope @ struct_of_fptrs in
       let non_fptr_bound = List.length dumped_scope in
@@ -622,7 +623,7 @@ and list_of_fptrs (scope : symbol_table) builder =
           env := new_scope in ()
         else
            (* we are unpacking captured fptrs here now *)
-          let _ = let new_scope = {variables = StringMap.add var_name llval !env.variables; shared = StringMap.add var_name is_shared !env.shared; stored = StringMap.add var_name (find_stored !env var_name) !env.stored; parent = !env.parent; functionpointers = !env.functionpointers} in
+          let _ = let new_scope = {variables = StringMap.add var_name llval !env.variables; shared = StringMap.add var_name is_shared !env.shared; stored = StringMap.add var_name (find_stored !env var_name) !env.stored; parent = !env.parent; functionpointers = StringMap.add var_name llval !env.functionpointers} in
           env := new_scope in ()) dumped_scope in
       
       if List.length formals > 0 then
