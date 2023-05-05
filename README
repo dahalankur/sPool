@@ -8,6 +8,86 @@ Etha Hua       (tianze.hua@tufts.edu)
 
 --------------------------------------------------------------------------------
 
+For more information about the sPool programming language, please see the 
+[project report](./docs/report/Nautilus.pdf).
+
+Scripts provided:
+
+NOTE: For all scripts mentioned below, please ensure that you are within the `src` 
+directory.
+
+- Compile the compiler:
+       A Makefile is provided which compiles the compiler into an executable. 
+       When present in the `src` directory, type `make` to generate the executable 
+       file named `toplevel.native`. To successfully compile the sPool compiler, it 
+       is expected that the tools required to compile the MicroC compiler are 
+       present on the host machine, i.e., basic OCaml toolchain (ocaml, ocamlbuild, 
+       ocamllex, ocamlyacc, ocamlfind, opam) as well as LLVM (LLVM on the host 
+       machine and the Ocaml LLVM API installed using opam) must be present. 
+       Other than these tools and Python3 (tested on versions 3.8.10 and higher, 
+       although lower versions should still work), no additional packages/tools 
+       are needed to compile the sPool compiler or to run any of the 
+       included tests.
+
+- Run all tests:
+       To run all tests in this integration testing suite, type:
+       
+              `make testcodegen` or `make testparser`
+       depending on if you want to run tests for codegen or lexer/parser
+       respectively.
+
+       This should automatically compile the compiler and run our `runtests.py` python script
+       to run all tests in the testsuite.
+
+- Run all tests in a specific directory:
+        To run all tests in a testname directory type:
+
+            `python3 runtests.py <TESTPHASE> all <TESTDIR>` 
+        
+        where <TESTPHASE> is the name of the directory in sPool/tests/
+        and <TESTDIR> is the name of the directory in sPool/tests/<TESTPHASE>/
+
+- Run a single test:
+
+       To run a single test, type:
+              `python3 runtests.py <TESTPHASE> <TESTDIR> <TESTNAME>` 
+
+       where <TESTPHASE> is the name of the directory in sPool/tests/,       
+       <TESTDIR> is the name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
+       name of the test without the extension `.sP` in sPool/test/codegen/<TESTDIR>/
+       
+       For example, if you want to run an individual test on the test-list8.sP file under 
+       sPool/tests/codegen/list, type:
+              `python3 runtests.py codegen list test-list8`
+       
+       Similarly, if you want to run the test on the fail-strings1.sP file 
+       under sPool/tests/codegen/strings, type:
+              `python3 runtests.py codegen strings fail-strings1`
+
+- Run the compiler on a given source file:
+
+       To compile a specific sPool source file, type
+              `./compile.sh [-stdlib] <file> <executable>`
+       
+       where <file> is the sPool src file to be compiled, and the <executable>
+       is the name of the executable generated. [-stdlib] is an optional flag
+       which, if included, will include all standard library functions in 
+       compilation for use by the program. The intermediate files generated 
+       in the process will be present in the same directory from which the 
+       compile script was run. There are two files generated for each sPool 
+       source file compiled -- the LLVM IR (having .ll extension) and the 
+       assembly file (having .s extension).
+
+       The sPool source code for functions in the sPool standard library can 
+       be found in the stdlib/ directory.
+
+       For instance, if you want to compile a sPool source file hello.sP, run:
+              `./compile.sh hello.sP a.out`
+       The resulting executable will be named a.out, so running `./a.out` will 
+       execute the program.
+
+--------------------------------------------------------------------------------
+
 The sPool integration testing suite:
 
 - Programs present in the testing suite:
@@ -273,83 +353,6 @@ The sPool integration testing suite:
                              fibonacci function and within a loop, prints the 
                              first 46 fibonacci numbers. Moreover, this file
                              implements a HOF named flip and tests it.
-
---------------------------------------------------------------------------------
-
-Scripts provided:
-
-NOTE: For all scripts mentioned below, please ensure that you are within the `src` 
-directory.
-
-- Compile the compiler:
-       A Makefile is provided which compiles the compiler into an executable. 
-       When present in the `src` directory, type `make` to generate the executable 
-       file named `toplevel.native`. To successfully compile the sPool compiler, it 
-       is expected that the tools required to compile the MicroC compiler are 
-       present on the host machine, i.e., basic OCaml toolchain (ocaml, ocamlbuild, 
-       ocamllex, ocamlyacc, ocamlfind, opam) as well as LLVM (LLVM on the host 
-       machine and the Ocaml LLVM API installed using opam) must be present. 
-       Other than these tools and Python3 (tested on versions 3.8.10 and higher, 
-       although lower versions should still work), no additional packages/tools 
-       are needed to compile the sPool compiler or to run any of the 
-       included tests.
-
-- Run all tests:
-       To run all tests in this integration testing suite, type:
-       
-              `make testcodegen` or `make testparser`
-       depending on if you want to run tests for codegen or lexer/parser
-       respectively.
-
-       This should automatically compile the compiler and run our `runtests.py` python script
-       to run all tests in the testsuite.
-
-- Run all tests in a specific directory:
-        To run all tests in a testname directory type:
-
-            `python3 runtests.py <TESTPHASE> all <TESTDIR>` 
-        
-        where <TESTPHASE> is the name of the directory in sPool/tests/
-        and <TESTDIR> is the name of the directory in sPool/tests/<TESTPHASE>/
-
-- Run a single test:
-
-       To run a single test, type:
-              `python3 runtests.py <TESTPHASE> <TESTDIR> <TESTNAME>` 
-
-       where <TESTPHASE> is the name of the directory in sPool/tests/,       
-       <TESTDIR> is the name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
-       name of the test without the extension `.sP` in sPool/test/codegen/<TESTDIR>/
-       
-       For example, if you want to run an individual test on the test-list8.sP file under 
-       sPool/tests/codegen/list, type:
-              `python3 runtests.py codegen list test-list8`
-       
-       Similarly, if you want to run the test on the fail-strings1.sP file 
-       under sPool/tests/codegen/strings, type:
-              `python3 runtests.py codegen strings fail-strings1`
-
-- Run the compiler on a given source file:
-
-       To compile a specific sPool source file, type
-              `./compile.sh [-stdlib] <file> <executable>`
-       
-       where <file> is the sPool src file to be compiled, and the <executable>
-       is the name of the executable generated. [-stdlib] is an optional flag
-       which, if included, will include all standard library functions in 
-       compilation for use by the program. The intermediate files generated 
-       in the process will be present in the same directory from which the 
-       compile script was run. There are two files generated for each sPool 
-       source file compiled -- the LLVM IR (having .ll extension) and the 
-       assembly file (having .s extension).
-
-       The sPool source code for functions in the sPool standard library can 
-       be found in the stdlib/ directory.
-
-       For instance, if you want to compile a sPool source file hello.sP, run:
-              `./compile.sh hello.sP a.out`
-       The resulting executable will be named a.out, so running `./a.out` will 
-       execute the program.
 
 --------------------------------------------------------------------------------
 
