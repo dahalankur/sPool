@@ -1,11 +1,10 @@
-The sPool Programming Language - Team Nautilus
-Project Deliverable #4: Extended Testsuite
-
-Members:    
+The sPool Programming Language
+       Team Nautilus
+  
 Yuma Takahashi (yuma.takahashi@tufts.edu)
-Max Mitchell (maxwell.mitchell@tufts.edu)
-Ankur Dahal (ankur.dahal@tufts.edu)
-Etha Hua (tianze.hua@tufts.edu)
+Max Mitchell   (maxwell.mitchell@tufts.edu)
+Ankur Dahal    (ankur.dahal@tufts.edu)
+Etha Hua       (tianze.hua@tufts.edu)
 
 --------------------------------------------------------------------------------
 
@@ -13,7 +12,7 @@ The sPool integration testing suite:
 
 - Programs present in the testing suite:
   Our testing suite follows the format of the testing suite we submitted for 
-  our scanner and parser deliverable: there are directories under tests/codegen
+  our extended testsuite deliverable: there are directories under tests/
   that contain a bunch of tests. Tests that are expected to succeed are 
   named with test-<testname[n]>.sP with their corresponding gold-standard output 
   stored in test-<testname[n]>.out, whereas tests that are expected to fail 
@@ -21,137 +20,141 @@ The sPool integration testing suite:
   error output stored in fail-<testname[n]>.err. The description of the 
   programs present in our testing suite is given below:
       LEXER AND PARSER: 
-       - fail-assign1 : TODO
-       - fail-assign1 : TODO
-       - fail-assign2 : TODO
-       - fail-assign3 : TODO
-       - test-assign4 : TODO
-       - test-assign2 : TODO
-       - test-assign3 : TODO
-       - test-assign4 : TODO
-       - test-assign5 : TODO
+      These tests are present in the tests/lexerparser directory.
+
+       - fail-assign1 : Checks that LHS must be a name, not a literal value
+       - fail-assign2 : Checks that LHS cannot be a type
+       - fail-assign3 : Checks that only an expression may be assigned to a name
+       - fail-assign4 : Checks that names may not have spaces 
+       - test-assign1 : Checks basic assignments (name = var, name = literal, etc)
+       - test-assign2 : Checks that lambda, call, and expr may be assigned to names
+       - test-assign3 : Checks various self-assignment cases
+       - test-assign4 : Checks lists, floats, strings
+       - test-assign5 : Stress testing assignment on more complex cases
        
-       - fail-binop1 : TODO
-       - fail-binop2 : TODO
-       - fail-binop3 : TODO
-       - fail-binop4 : TODO
-       - fail-binop5 : TODO
-       - test-binop1 : TODO
-       - test-binop2 : TODO
-       - test-binop3 : TODO
-       - test-binop4 : TODO
-       - test-binop5 : TODO
+       - fail-binop1 : May not have two binops in a row; need expressions between them
+       - fail-binop2 : Parentheses must match
+       - fail-binop3 : Binops must have one expression on each side 
+       - fail-binop4 : Binops may not have more than one expression on each side
+       - fail-binop5 : Cannot combine assignment and binop (ala C++'s `+=`)
+       - test-binop1 : Addition and subtraction
+       - test-binop2 : Multiplication, division, and modulo
+       - test-binop3 : Equality and comparison
+       - test-binop4 : Parentheses for arithmetic
+       - test-binop5 : Parentheses for equality and comparison
        
-       - fail-call1 : TODO
-       - fail-call2 : TODO
-       - fail-call3 : TODO
-       - fail-call4 : TODO
-       - fail-call5 : TODO
-       - fail-call6 : TODO
-       - test-call1 : TODO
-       - test-call2 : TODO
-       - test-call3 : TODO
-       - test-call4 : TODO
+       - fail-call1 : Arguments to functions must be an expression
+       - fail-call2 : Parsing error due to unmatched parentheses in function call
+       - fail-call3 : Wrong number of parens while calling a function leads to an error
+       - fail-call4 : Function names may not begin with a number
+       - fail-call5 : Layered parens are not allowed while calling functions
+       - fail-call6 : Empty argument list with commas fails for function calls
+       - test-call1 : Multiple function calls with well-formed arguments
+       - test-call2 : Function calls made as the RHS of a variable definition
+       - test-call3 : Nested function calls with multiple layers are tested
+       - test-call4 : Testing function calls with expressions that are not literals
 
-       - fail-define1 : TODO
-       - fail-define2 : TODO
-       - fail-define3 : TODO
-       - fail-define4 : TODO
-       - test-define1 : TODO
-       - test-define2 : TODO
-       - test-define3 : TODO
-       - test-define4 : TODO
-       - test-define5 : TODO
-       - test-define6 : TODO
-       - test-define7 : TODO
+       - fail-define1 : May not use reserved words (types) as variable names
+       - fail-define2 : Must use valid type before name in definition
+       - fail-define3 : Arrow types must have at least one argument type
+       - fail-define4 : Arrow types must have one return type
+       - test-define1 : Int, bool, float, and quack definition (quack definition is 
+                        syntactically valid but semantically invalid)
+       - test-define2 : String, mutex, and thread definitions
+       - test-define3 : List and function definitions
+       - test-define4 : Nested lists definitions
+       - test-define5 : Many argument lambda definitions
+       - test-define6 : Lambda definition stress tests
+       - test-define7 : List of lambdas definition
 
-       - fail-fundef1 : TODO
-       - fail-fundef2 : TODO
-       - fail-fundef3 : TODO
-       - test-fundef1 : TODO
-       - test-fundef2 : TODO
-       - test-fundef3 : TODO
-       - test-fundef4 : TODO
+       - fail-fundef1 : Assignment of fundef to variables should fail
+       - fail-fundef2 : Functions with no return types are invalid
+       - fail-fundef3 : Functions that do not specify parameter names are invalid
+       - test-fundef1 : Checks that nested function definitions work
+       - test-fundef2 : Checks that a recursive function with the store keyword is valid
+       - test-fundef3 : Checks empty function body and empty params/return values
+       - test-fundef4 : A higher order function that takes in a function and returns a function is valid
 
-       - fail-if1 : detect the semantic error where the conditional of an if statement
-                    is a string value instead of a boolean value
-       - fail-if2 : detect the semantic error where an integer value is 
-                     being "anded" with a boolean value
-       - fail-if3 : TODO
-       - fail-if4 : TODO
-       - fail-if5 : TODO
-       - fail-if6 : TODO
-       - fail-if7 : TODO
-       - test-if3 : TODO
-       - test-if4 : TODO
+       - fail-if1 : If statement with empty conditional is invalid
+       - fail-if2 : Semicolons not closing the if body is an error
+       - fail-if3 : If statement with no colon is a parsing error
+       - fail-if4 : If statement with no parens in conditional is invalid
+       - fail-if5 : an else clause with a colon after it is a parsing error
+       - fail-if6 : if is closed with semicolon and else proceeds it immediately; it is a parsing error
+       - fail-if7 : Testing that the if conditional is an expression and not a statement
+       - test-if1 : Testing a simple if statement is valid
+       - test-if2 : If used with an else is valid
+       - test-if3 : Testing if with an empty body
+       - test-if4 : Testing the dangling else problem
 
-       - fail-lambda1 : TODO
-       - fail-lambda2 : TODO
-       - fail-lambda3 : TODO
-       - fail-lambda4 : TODO
-       - test-lambda1 : TODO
-       - test-lambda2 : TODO
-       - test-lambda3 : TODO
-       - test-lambda4 : TODO
-       - test-lambda5 : TODO
+       - fail-lambda1 : Lambda must have return type declared
+       - fail-lambda2 : Lambda must have formal types declared
+       - fail-lambda3 : Formals must have parentheses around them
+       - fail-lambda4 : Lambdas must end with a semicolon
+       - test-lambda1 : Any number of formals is valid
+       - test-lambda2 : Checks a variety of syntactically valid bodies
+       - test-lambda3 : Nested lambdas
+       - test-lambda4 : Stress test lambda with many statement types
+       - test-lambda5 : Lambda as an argument to a function
 
-       - fail-literal1 : TODO
-       - fail-literal2 : TODO
-       - fail-literal3 : TODO
-       - fail-literal4 : TODO
-       - fail-literal5 : TODO
-       - test-literal1 : TODO
-       - test-literal2 : TODO
-       - test-literal3 : TODO
-       - test-literal4 : TODO
-       - test-literal5 : TODO
+       - fail-literal1 : Integers with characters are invalid
+       - fail-literal2 : Floating point literals have to start with a digit
+       - fail-literal3 : Two literals on the same line are invalid
+       - fail-literal4 : Strings without explicit newlines are invalid
+       - fail-literal5 : Unmatched parentheses for lists
+       - test-literal1 : Some simple integer literals
+       - test-literal2 : Some simple float literals
+       - test-literal3 : Some simple bool literals with other non-bool names
+       - test-literal4 : Some string literals with newlines
+       - test-literal5 : Well-typed list literals are valid
 
-       - fail-return1 : TODO
-       - fail-return2 : TODO
-       - fail-return3 : TODO
-       - fail-return4 : TODO
-       - fail-return5 : TODO
-       - test-return1 : TODO
-       - test-return2 : TODO
-       - test-return3 : TODO
-       - test-return4 : TODO
-       - test-return5 : TODO
+       - fail-return1 : Can only return an expression
+       - fail-return2 : Can't return a return expression
+       - fail-return3 : Can't assign a return expression to a name
+       - fail-return4 : Return may not be used in formals
+       - fail-return5 : Return may not be parenthesized
+       - test-return1 : Returning basic expressions
+       - test-return2 : Returning no expression (for quack functions)
+       - test-return3 : Multiple returns (syntactically valid, semantically invalid)
+       - test-return4 : Returns with composite expressions
+       - test-return5 : Returning a lambda from a lambda
 
-       - fail-thread1 : TODO
-       - test-thread1 : TODO
-       - test-thread2 : TODO
-       - test-thread3 : TODO
+       - fail-thread1 : detects that statements can not be on the same line
+       - test-thread1 : Nested threads on the same line with empty body are valid
+       - test-thread2 : An empty thread with no body is valid
+       - test-thread3 : A non-empty thread body is valid
        
-       - fail-unop1 : TODO
-       - fail-unop2 : TODO
-       - test-unop1 : TODO
-       - test-unop1 : TODO
-       - test-unop1 : TODO
-       - test-unop1 : TODO
-       - test-unop1 : TODO
+       - fail-unop1 : Unary operator after the expression is invalid
+       - fail-unop2 : Same as fail-unop1, but for negation
+       - test-unop1 : Testing n numbers of negation on boolean values
+       - test-unop2 : Testing unary operators on booleans inside parentheses
+       - test-unop3 : Testing arithmetic negation
+       - test-unop4 : Same as unop3, but with parentheses and nested expressions
+       - test-unop5 : Testing mixture of unary operators
        
-       - fail-var1 : TODO
-       - fail-var2 : TODO
-       - fail-var3 : TODO
-       - fail-var4 : TODO
-       - fail-var5 : TODO
-       - test-var1 : TODO
-       - test-var2 : TODO
-       - test-var3 : TODO
-       - test-var4 : TODO
-       - test-var5 : TODO
+       - fail-var1 : detect that valid variable names can not begin with a number
+       - fail-var2 : detect that valid variable names can not begin with an underscore
+       - fail-var3 : detect that valid variable names can not use special characters except _
+       - fail-var4 : detect that variable names can not use exclamation marks
+       - fail-var5 : detect that variable names can not use spaces
+       - test-var1 : using lowercase alphabets in variable names is valid
+       - test-var2 : using uppercase alphabets in variable names is valid
+       - test-var3 : using numbers in variable names is valid, as long as they don't start with numbers
+       - test-var4 : using underscores in variable names is valid, as long as they don't start with underscores
+       - test-var5 : testing long valid variable names is valid
 
-       - fail-while1 : TODO
-       - fail-while2 : TODO
-       - fail-while3 : TODO
-       - fail-while4 : TODO
-       - fail-while5 : TODO
-       - test-while1 : TODO
-       - test-while2 : TODO
-       - test-while3 : TODO
-       - test-while4 : TODO
+       - fail-while1 : Must have some expression as the condition
+       - fail-while2 : Must open body with a colon
+       - fail-while3 : Must close body with a semicolon
+       - fail-while4 : Must wrap condition in parentheses
+       - fail-while5 : Condition must be an expression
+       - test-while1 : Simple infinite loop
+       - test-while2 : Nested while loops
+       - test-while3 : Testing an if statement in the body of a while statement is valid
+       - test-while4 : The body of a while statement can syntactically be empty
        
     CODEGEN:
+    These tests are present in the tests/codegen directory.
 
        - test-closure1 : TODO
        - test-closure2 : TODO
@@ -176,8 +179,10 @@ The sPool integration testing suite:
        - test-hofs5 : TODO
        - test-hofs6 : TODO
 
-       - fail-if1 : TODO
-       - fail-if2 : TODO       
+       - fail-if1 : detect the semantic error where the conditional of an if statement
+                    is a string value instead of a boolean value
+       - fail-if2 : detect the semantic error where an integer value is 
+                     being "anded" with a boolean value     
        - test-if1 : Testing that if the condition for if is true, then the program  
                     goes into the if block and executes that section. The conditional
                     is an equality check between two integers.
@@ -266,7 +271,9 @@ directory.
 - Run all tests:
        To run all tests in this integration testing suite, type:
        
-              `make testcodegen`
+              `make testcodegen` or `make testparser`
+       depending on if you want to run tests for codegen or lexer/parser
+       respectively.
 
        This should automatically compile the compiler and run our `runtests.py` python script
        to run all tests in the testsuite.
@@ -279,13 +286,13 @@ directory.
         where <TESTPHASE> is the name of the directory in sPool/tests/
         and <TESTDIR> is the name of the directory in sPool/tests/<TESTPHASE>/
 
-
 - Run a single test:
 
        To run a single test, type:
-              `python3 runtests.py codegen <TESTDIR> <TESTNAME>` 
-              
-       where <TESTDIR> is the name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
+              `python3 runtests.py <TESTPHASE> <TESTDIR> <TESTNAME>` 
+
+       where <TESTPHASE> is the name of the directory in sPool/tests/,       
+       <TESTDIR> is the name of the directory in sPool/tests/codegen/ and <TESTNAME> is the 
        name of the test without the extension `.sP` in sPool/test/codegen/<TESTDIR>/
        
        For example, if you want to run an individual test on the test-list8.sP file under 
@@ -309,6 +316,9 @@ directory.
        compile script was run. There are two files generated for each sPool 
        source file compiled -- the LLVM IR (having .ll extension) and the 
        assembly file (having .s extension).
+
+       The sPool source code for functions in the sPool standard library can 
+       be found in the stdlib/ directory.
 
        For instance, if you want to compile a sPool source file hello.sP, run:
               `./compile.sh hello.sP a.out`
@@ -348,10 +358,10 @@ How testing works:
 
 _______________________________________________________________________________
 
-Demos:
+Some fun demos written in the sPool programming language:
 
 We include a folder of demos of the sPool language. These can all be found
-within the `demos` folder:
+within the `demos` directory:
      - sPool/demos/fibonacci.sP
      - sPool/demos/flip.sP
      - sPool/demos/idempotence.sP
