@@ -20,26 +20,173 @@ The sPool integration testing suite:
   are named with fail-<testname[n]>.sP with their corresponding gold-standard 
   error output stored in fail-<testname[n]>.err. The description of the 
   programs present in our testing suite is given below:
+      LEXER AND PARSER: 
+       - fail-assign1 : TODO
+       - fail-assign1 : TODO
+       - fail-assign2 : TODO
+       - fail-assign3 : TODO
+       - test-assign4 : TODO
+       - test-assign2 : TODO
+       - test-assign3 : TODO
+       - test-assign4 : TODO
+       - test-assign5 : TODO
        
+       - fail-binop1 : TODO
+       - fail-binop2 : TODO
+       - fail-binop3 : TODO
+       - fail-binop4 : TODO
+       - fail-binop5 : TODO
+       - test-binop1 : TODO
+       - test-binop2 : TODO
+       - test-binop3 : TODO
+       - test-binop4 : TODO
+       - test-binop5 : TODO
+       
+       - fail-call1 : TODO
+       - fail-call2 : TODO
+       - fail-call3 : TODO
+       - fail-call4 : TODO
+       - fail-call5 : TODO
+       - fail-call6 : TODO
+       - test-call1 : TODO
+       - test-call2 : TODO
+       - test-call3 : TODO
+       - test-call4 : TODO
+
+       - fail-define1 : TODO
+       - fail-define2 : TODO
+       - fail-define3 : TODO
+       - fail-define4 : TODO
+       - test-define1 : TODO
+       - test-define2 : TODO
+       - test-define3 : TODO
+       - test-define4 : TODO
+       - test-define5 : TODO
+       - test-define6 : TODO
+       - test-define7 : TODO
+
+       - fail-fundef1 : TODO
+       - fail-fundef2 : TODO
+       - fail-fundef3 : TODO
+       - test-fundef1 : TODO
+       - test-fundef2 : TODO
+       - test-fundef3 : TODO
+       - test-fundef4 : TODO
+
        - fail-if1 : detect the semantic error where the conditional of an if statement
                     is a string value instead of a boolean value
        - fail-if2 : detect the semantic error where an integer value is 
                      being "anded" with a boolean value
+       - fail-if3 : TODO
+       - fail-if4 : TODO
+       - fail-if5 : TODO
+       - fail-if6 : TODO
+       - fail-if7 : TODO
+       - test-if3 : TODO
+       - test-if4 : TODO
+
+       - fail-lambda1 : TODO
+       - fail-lambda2 : TODO
+       - fail-lambda3 : TODO
+       - fail-lambda4 : TODO
+       - test-lambda1 : TODO
+       - test-lambda2 : TODO
+       - test-lambda3 : TODO
+       - test-lambda4 : TODO
+       - test-lambda5 : TODO
+
+       - fail-literal1 : TODO
+       - fail-literal2 : TODO
+       - fail-literal3 : TODO
+       - fail-literal4 : TODO
+       - fail-literal5 : TODO
+       - test-literal1 : TODO
+       - test-literal2 : TODO
+       - test-literal3 : TODO
+       - test-literal4 : TODO
+       - test-literal5 : TODO
+
+       - fail-return1 : TODO
+       - fail-return2 : TODO
+       - fail-return3 : TODO
+       - fail-return4 : TODO
+       - fail-return5 : TODO
+       - test-return1 : TODO
+       - test-return2 : TODO
+       - test-return3 : TODO
+       - test-return4 : TODO
+       - test-return5 : TODO
+
+       - fail-thread1 : TODO
+       - test-thread1 : TODO
+       - test-thread2 : TODO
+       - test-thread3 : TODO
+       
+       - fail-unop1 : TODO
+       - fail-unop2 : TODO
+       - test-unop1 : TODO
+       - test-unop1 : TODO
+       - test-unop1 : TODO
+       - test-unop1 : TODO
+       - test-unop1 : TODO
+       
+       - fail-var1 : TODO
+       - fail-var2 : TODO
+       - fail-var3 : TODO
+       - fail-var4 : TODO
+       - fail-var5 : TODO
+       - test-var1 : TODO
+       - test-var2 : TODO
+       - test-var3 : TODO
+       - test-var4 : TODO
+       - test-var5 : TODO
+
+       - fail-while1 : TODO
+       - fail-while2 : TODO
+       - fail-while3 : TODO
+       - fail-while4 : TODO
+       - fail-while5 : TODO
+       - test-while1 : TODO
+       - test-while2 : TODO
+       - test-while3 : TODO
+       - test-while4 : TODO
+       
+    CODEGEN:
+
+       - test-closure1 : TODO
+       - test-closure2 : TODO
+       - test-closure3 : TODO
+       - test-closure4 : TODO
+       - test-closure5 : TODO
+       - test-closure6 : TODO
+       - test-closure7 : TODO
+       - test-closure8 : TODO
+       - test-closure9 : TODO
+
+       - test-function1 : TODO
+       - test-function2 : TODO
+       - test-function3 : TODO
+       - test-function4 : TODO
+       - test-function5 : TODO
+
+       - test-hofs1 : TODO
+       - test-hofs2 : TODO
+       - test-hofs3 : TODO
+       - test-hofs4 : TODO
+       - test-hofs5 : TODO
+       - test-hofs6 : TODO
+
+       - fail-if1 : TODO
+       - fail-if2 : TODO       
        - test-if1 : Testing that if the condition for if is true, then the program  
                     goes into the if block and executes that section. The conditional
                     is an equality check between two integers.
        - test-if2 : Testing that if the condition for if is false, then the program
                     goes into the else block and executes that section.
-       
-       - fail-print1 : Testing a semantic error related to the print built-in function 
-                       by supplying a non-string integer argument to it.
-       - fail-print2 : Testing a semantic error related to the print built-in function 
-                       by supplying a non-string boolean argument to it.
-       - test-print1 : Testing the println built-in function with a true boolean value.
-       - test-print2 : Testing the println built-in function with a "Hello, world!" string.
-       - test-print3 : Testing the println built-in function with a multi-line
-                       string value.
 
+       - fail-list1 : Testing that a creation of heterogeneous list fails
+       - fail-list2 : Testing that the List_insert built-in function fails by inserting
+                      a type different from that of elements in the supplied list literal
        - test-list1 :  Testing the List_insert built-in function with inserting elements
                        to the front, middle and back of a list.
        - test-list2 :  Testing the List_insert built-in function with inserting elements
@@ -61,16 +208,29 @@ The sPool integration testing suite:
                        by calling list-modifying functions with different list variables, 
                        while the change is preserved when the same list is accessed via all 
                        three list variables.
-       - fail-list1 : Testing that a creation of heterogeneous list fails
-       - fail-list2 : Testing that the List_insert built-in function fails by inserting
-                      a type different from that of elements in the supplied list literal
+       - test-list9 : TODO
+       - test-list10 : TODO
+       - test-list11 : TODO
+       - test-list12 : TODO
+       - test-list13 : TODO
+       - test-list14 : TODO
+       - test-list15 : TODO
+       
+       - fail-print1 : Testing a semantic error related to the print built-in function 
+                       by supplying a non-string integer argument to it.
+       - fail-print2 : Testing a semantic error related to the print built-in function 
+                       by supplying a non-string boolean argument to it.
+       - test-print1 : Testing the println built-in function with a true boolean value.
+       - test-print2 : Testing the println built-in function with a "Hello, world!" string.
+       - test-print3 : Testing the println built-in function with a multi-line
+                       string value.
 
+       - fail-strings1 : Testing that the String_substr built-in function fails on an
+                         argument with the incorrect type.
        - test-strings1 : Testing the String_substr built-in function by printing 
                          the length of a string
        - test-strings2 : Testing the String_eq and String_concat built-in functions by
                          concatenating two strings if those two strings are not equivalent
-       - fail-strings1 : Testing that the String_substr built-in function fails on an
-                         argument with the incorrect type.
 
        - test-thread1 : Testing waiting for an asynchronous thread to finish 
                         executing works as expected. The main thread only 
@@ -80,6 +240,8 @@ The sPool integration testing suite:
                         concurrently printing to stdout. This test waits for 
                         all threads to be done before the main thread exits, 
                         ensuring that the output is always deterministic.
+       - test-thread3 : TODO
+       - test-thread4 : TODO
 
 --------------------------------------------------------------------------------
 
@@ -137,10 +299,12 @@ directory.
 - Run the compiler on a given source file:
 
        To compile a specific sPool source file, type
-              `./compile.sh <file> <executable>`
+              `./compile.sh [-stdlib] <file> <executable>`
        
        where <file> is the sPool src file to be compiled, and the <executable>
-       is the name of the executable generated. The intermediate files generated 
+       is the name of the executable generated. [-stdlib] is an optional flag
+       which, if included, will include all standard library functions in 
+       compilation for use by the program. The intermediate files generated 
        in the process will be present in the same directory from which the 
        compile script was run. There are two files generated for each sPool 
        source file compiled -- the LLVM IR (having .ll extension) and the 
@@ -181,3 +345,19 @@ How testing works:
        the expected error message against the one we received while trying 
        to compile the program and determine if the compilation process 
        was successful or not.
+
+_______________________________________________________________________________
+
+Demos:
+
+We include a folder of demos of the sPool language. These can all be found
+within the `demos` folder:
+     - sPool/demos/fibonacci.sP
+     - sPool/demos/flip.sP
+     - sPool/demos/idempotence.sP
+     - sPool/demos/mutex.sP
+     - sPool/demos/nondeterminism.sP
+     - sPool/demos/sort.sP
+     - sPool/demos/storedStringFunc.sP
+     - sPool/demos/unblackedges.sP
+Each file contains information on how to run the demo and what it does.
