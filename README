@@ -156,28 +156,30 @@ The sPool integration testing suite:
     CODEGEN:
     These tests are present in the tests/codegen directory.
 
-       - test-closure1 : TODO
-       - test-closure2 : TODO
-       - test-closure3 : TODO
-       - test-closure4 : TODO
-       - test-closure5 : TODO
-       - test-closure6 : TODO
-       - test-closure7 : TODO
-       - test-closure8 : TODO
-       - test-closure9 : TODO
+       - test-closure1 : Closure of non-shared variables
+       - test-closure2 : Closure of shared variables
+       - test-closure3 : Closure for nested functions
+       - test-closure4 : Single line lambda definition and return
+       - test-closure5 : Repeatedly defining a function in a loop
+       - test-closure6 : Stress testing closures and nested closures
+       - test-closure7 : Wildly nested functions and threads; 
+                         tests that the variables are unpacked correctly in their 
+                         closures while generating function body 
+       - test-closure8 : Lambdas as arguments, modifying shared variables, and complex closures
+       - test-closure9 : Capturing function pointers in nested layers of functions works as expected
 
-       - test-function1 : TODO
-       - test-function2 : TODO
-       - test-function3 : TODO
-       - test-function4 : TODO
-       - test-function5 : TODO
+       - test-function1 : Recursive function
+       - test-function2 : Using store to implement idempotence
+       - test-function3 : Downgrading a store function when passsed as a parameter
+       - test-function4 : Exhausting a function's store with shared variables to break idempotence
+       - test-function5 : Testing that a store function that returns INT_MIN will not cache!
 
-       - test-hofs1 : TODO
-       - test-hofs2 : TODO
-       - test-hofs3 : TODO
-       - test-hofs4 : TODO
-       - test-hofs5 : TODO
-       - test-hofs6 : TODO
+       - test-hofs1 : Reassign function variable to a new function value
+       - test-hofs2 : Nested functions and capturing function with closure
+       - test-hofs3 : Test passing functions as parameters
+       - test-hofs4 : Test passing lambdas as parameters
+       - test-hofs5 : Capturing reassigned function with closure inside another function
+       - test-hofs6 : Returning a function from another function
 
        - fail-if1 : detect the semantic error where the conditional of an if statement
                     is a string value instead of a boolean value
@@ -213,13 +215,27 @@ The sPool integration testing suite:
                        by calling list-modifying functions with different list variables, 
                        while the change is preserved when the same list is accessed via all 
                        three list variables.
-       - test-list9 : TODO
-       - test-list10 : TODO
-       - test-list11 : TODO
-       - test-list12 : TODO
-       - test-list13 : TODO
-       - test-list14 : TODO
-       - test-list15 : TODO
+       - test-list9 : Testing nested lists and dealing with lists inside lists using the 
+                      List_at builtin function. We iterate over each nested list and print 
+                      the individual elements to stdout.
+       - test-list10 : This tests that a list is captured properly by functions, and any 
+                       modifications made to the captured list is reflected everywhere 
+                       the list is accessed. Moreover, it also tests passing lists by 
+                       reference to functions and testing if changes made within the 
+                       function body is reflected everywhere.
+       - test-list11 : Testing that list assignment preserves reference to the initially 
+                       assigned list literal. Removal of the element at the head after re-assigning
+                       lists work as expected
+       - test-list12 : Testing that assigning a new list literal to a list 
+                       variable in a new scope preserves the assignment
+       - test-list13 : Testing list capture in closure and modification and seeing if 
+                       it is reflected in the outer scope. Moreover, making modifications
+                       to the captured list in different layers of scopes works as 
+                       expected and preserves the changes made to the shared list
+                       variable
+       - test-list14 : Testing lists as formal parameters and modifying them in functions and threads
+       - test-list15 : Testing scenarios where list literals are returned from functions, including 
+                       nested list literals
        
        - fail-print1 : Testing a semantic error related to the print built-in function 
                        by supplying a non-string integer argument to it.
@@ -240,13 +256,23 @@ The sPool integration testing suite:
        - test-thread1 : Testing waiting for an asynchronous thread to finish 
                         executing works as expected. The main thread only 
                         exits after the expected outputs have been printed 
-                        to stdout.
+                        to stdout
        - test-thread2 : Similar to test-thread1, but now there are ten threads 
                         concurrently printing to stdout. This test waits for 
                         all threads to be done before the main thread exits, 
-                        ensuring that the output is always deterministic.
-       - test-thread3 : TODO
-       - test-thread4 : TODO
+                        ensuring that the output is always deterministic
+       - test-thread3 : Integration test that captures lists, and tests calls 
+                        to function that modifies the captured list from within
+                        a thread
+       - test-thread4 : Testing mutexes prevent concurrent threads from executing 
+                        the function body at the same time
+
+       - test-integration1 : An integration test that implements a BFS algorithm
+                             to walk through a 2D array.
+       - test-integration2 : An integration test that implements a "store" 
+                             fibonacci function and within a loop, prints the 
+                             first 46 fibonacci numbers. Moreover, this file
+                             implements a HOF named flip and tests it.
 
 --------------------------------------------------------------------------------
 
@@ -356,7 +382,7 @@ How testing works:
        to compile the program and determine if the compilation process 
        was successful or not.
 
-_______________________________________________________________________________
+--------------------------------------------------------------------------------
 
 Some fun demos written in the sPool programming language:
 
