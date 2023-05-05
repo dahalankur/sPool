@@ -9,7 +9,7 @@ Etha Hua       (tianze.hua@tufts.edu)
 --------------------------------------------------------------------------------
 
 For more information about the sPool programming language, please see the 
-[project report](./docs/report/Nautilus.pdf).
+[project report](https://www.github.com/dahalankur/sPool/docs/report/Nautilus.pdf).
 
 Scripts provided:
 
@@ -391,6 +391,7 @@ Some fun demos written in the sPool programming language:
 
 We include a folder of demos of the sPool language. These can all be found
 within the `demos` directory:
+
      - sPool/demos/fibonacci.sP
      - sPool/demos/flip.sP
      - sPool/demos/idempotence.sP
@@ -399,4 +400,5 @@ within the `demos` directory:
      - sPool/demos/sort.sP
      - sPool/demos/storedStringFunc.sP
      - sPool/demos/unblackedges.sP
+
 Each file contains information on how to run the demo and what it does.

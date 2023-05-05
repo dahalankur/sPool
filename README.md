@@ -399,4 +399,5 @@ within the `demos` directory:
      - sPool/demos/sort.sP
      - sPool/demos/storedStringFunc.sP
      - sPool/demos/unblackedges.sP
+
 Each file contains information on how to run the demo and what it does.
